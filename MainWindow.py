@@ -112,7 +112,9 @@ class MainWindow():
         def update_sidebar():
             sidebar.configure(width=self.sidebar_width())
 
-        self.window.bind("<Configure>", lambda event: self.window.after(1, update_sidebar))
+        self.update_sidebar = update_sidebar 
+
+        self.window.bind("<Configure>", lambda event: self.window.after(1, self.update_blocks))
 
 
     def sidebar_width(self):
@@ -144,8 +146,10 @@ class MainWindow():
         def update_radargram():
             mat_frame.configure(width=self.radargram_blocks_width()[0])
             impulsion_frame.configure(width=self.radargram_blocks_width()[1])
+        
+        self.update_radargram = update_radargram
 
-        self.window.bind("<Configure>", lambda event: self.window.after(1, update_radargram))
+        self.window.bind("<Configure>", lambda event: self.window.after(1, self.update_blocks))
 
     def radargram_blocks_width(self):
         """Méthode appelé par radargram, elle permet de récupérer la longueur souhaité pour les deux sous fenêtres."""
@@ -155,6 +159,10 @@ class MainWindow():
         mat_width = int((70 / 100) * radargram_width)
         impulsion_width = int((30 / 100) * radargram_width)
         return mat_width, impulsion_width
+    
+    def update_blocks(self):
+        self.update_sidebar()
+        self.update_radargram()
 
     def width_pad(self):
         """Méthode appelé par sidebar, elle permet de récupérer la hauteur de la fenêtre pour prendre le poucentage souhaité afin d'avoir un padx dynamique."""
@@ -169,3 +177,4 @@ class MainWindow():
         #print("Hauteur de la fenêtre :", window_height)
         sidebar_height = int((1 / 100)* window_height)
         return sidebar_height
+    
