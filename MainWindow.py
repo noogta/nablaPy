@@ -169,8 +169,3 @@ class MainWindow():
         #print("Hauteur de la fenêtre :", window_height)
         sidebar_height = int((1 / 100)* window_height)
         return sidebar_height
-
-__appname__ = "NablaPy"
-
-mainwindow = MainWindow(__appname__)
-mainwindow.window.mainloop()
