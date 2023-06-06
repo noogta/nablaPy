@@ -156,8 +156,8 @@ class MainWindow():
         window_width = self.window.winfo_width()
         #print("Largeur de la fenêtre :", window_width)
         radargram_width = int(( 85 / 100) * window_width)
-        mat_width = int((70 / 100) * radargram_width)
-        impulsion_width = int((30 / 100) * radargram_width)
+        mat_width = int((80 / 100) * radargram_width)
+        impulsion_width = int((20 / 100) * radargram_width)
         return mat_width, impulsion_width
     
     def update_blocks(self):
