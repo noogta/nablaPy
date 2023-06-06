@@ -1,9 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import os
-#Constante Globale
-c = 299792458 # Vitesse de la lumière dans le vide en m/s
-
+#Constante Globale Dictionnaire
+cste_global = {
+    "c_lum": 299792458,# Vitesse de la lumière dans le vide en m/s
+    }
 
 class RadarData:
     """RadarData: Classe contenant toutes les méthodes permettant avoir accès aux différentes données"""
@@ -16,7 +17,7 @@ class RadarData:
         """
         self.path = path
     
-    def rd_mat_high_freq(self):
+    def rd_mat(self):
         """
     Méthode permettant de récupérer la zone sondée à partir d'un fichier .rd3 ou .rd7.
 
@@ -25,25 +26,25 @@ class RadarData:
     """
         try:
             if(self.path.endswith(".rd3")):
-                with open(self.path, mode='rb') as rd3data:  # Ouvrir le fichier en mode binaire
+                with open(self.path, mode='rb') as rd3data:  # Ouvrir le fichier en mode binaire "rb"
                     byte_data = rd3data.read()
-                rd3 = np.frombuffer(byte_data, dtype=np.int16) #rd3 est codé sur 2 octets
-                rd3 = rd3.reshape(self.get_rad()[0], self.get_rad()[1])
+                rd3 = np.frombuffer(byte_data, dtype=np.int16) # rd3 est codé sur 2 octets
+                rd3 = rd3.reshape(self.get_rad()[0], self.get_rad()[1]) # Reshape de rd3
                 rd3 = rd3.transpose()
-                print("Taille du tableau :", rd3.shape)
+                #print("Taille du tableau :", rd3.shape)
                 return rd3
             elif(self.path.endswith(".rd7")):
-                with open(self.path, mode='rb') as rd7data:  # Ouvrir le fichier en mode binaire
+                with open(self.path, mode='rb') as rd7data:  # Ouvrir le fichier en mode binaire "rb"
                     byte_data = rd7data.read()
-                rd7 = np.frombuffer(byte_data, dtype=np.int32) #rd7 est codé sur 3 octets
-                rd7 = rd7.reshape(self.get_rad()[0], self.get_rad()[1])
+                rd7 = np.frombuffer(byte_data, dtype=np.int32) # rd7 est codé sur 3 octets
+                rd7 = rd7.reshape(self.get_rad()[0], self.get_rad()[1]) # Reshape de rd7
                 rd7 = rd7.transpose()
-                print("Taille du tableau :", rd7.shape)
+                #print("Taille du tableau :", rd7.shape)
                 return rd7
             
             #README
             # Si vous souhaitez rajouter d'autres format:
-            # -1 Ajouter elif(self.path.endswith(".format")):
+            # -1 Ajouter elif(self.path.endswith(".votre_format")):
             # -2 Veuillez vous renseigner sur la nature de vos données binaire, héxadécimal ...
             # -3 Lire les fichiers et ensuite les transférer dans un tableau numpy
             # -4 Redimmensionnez votre tableau à l'aide du nombre de samples et de traces
@@ -51,9 +52,16 @@ class RadarData:
 
         except Exception as e:
             print("Erreur lors de la lecture du fichier:", str(e))
+            return e
 
         
     def get_rad(self):
+        """
+    Méthode permettant de récupérer les données contenues dans le fichier .rad.
+
+    Return:
+        Retourne le tableau numpy contenant les données de la zone sondée.
+        """
         rad_file_path = self.path[:-2]+"ad"
 
         # Lecture du fichier .rad
@@ -74,10 +82,11 @@ class RadarData:
         
 
 
-
-path_rd3_high = "/home/cytech/Stage/Mesures/JOUANY1/JOUANY1_0001_1.rd7"
+"""
+path_rd3_high = "/home/cytech/Stage/Mesures/JOUANY1/JOUANY1_0001_1.rd3"
 radardata = RadarData(path_rd3_high)
-rd = radardata.rd_mat_high_freq()
+rd = radardata.rd_mat()
+
 plt.imshow(rd,)
 plt.show()
-#os.system("clear")
+#os.system("clear")"""
