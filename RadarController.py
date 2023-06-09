@@ -1,81 +1,68 @@
 from RadarData import RadarData
 import numpy as np
 import matplotlib.pyplot as plt
-import cv2
+
+import re
 class RadarController():
     def __init__(self,path):
         self.data = RadarData(path)
         self.rd = self.data.rd_mat()
 
-    def apply_constant_gain(self,image, gain):
+    def apply_constant_gain(self, img:np.ndarray, gain: float):
         """
-        Applique un gain constant à une image codée sur 2 octets.
+        Applique un gain constant à une image.
 
         Args:
-            image (numpy.ndarray): L'image d'entrée sous forme de tableau NumPy codé sur 2 octets.
+            img (numpy.ndarray): L'image d'entrée sous forme de tableau NumPy.
             gain (float): Le facteur de gain constant à appliquer.
 
         Returns:
             numpy.ndarray: L'image modifiée avec le gain constant appliqué.
         """
         # Conversion de l'image en flottant pour effectuer les calculs
-        image_float = image.astype(np.float16)
-
+        bit = self.get_bit_img(img)
+        # Conversion de notre matrice/image en float
+        img = img.astype("float"+str(bit))
         # Application du gain constant
-        image_float = np.clip(image_float * gain, -65535.0, 65535.0)
+        img = np.clip(img * gain, -(2**bit)+1, (2**bit)-1)
+        return img
 
-        return image_float
-
-
-
-    def apply_linear_gain(self, image, start_line, gain):
+    def apply_linear_gain(self, img: np.ndarray, t0: int, gain: float):
         """
-        Applique un gain linéaire croissant à une image codée sur 2 octets à partir d'une ligne spécifiée.
+        Applique un gain linéaire croissant à une image à partir d'une ligne spécifiée.
 
         Args:
-            image (numpy.ndarray): L'image d'entrée sous forme de tableau NumPy codé sur 2 octets.
-            start_line (int): La ligne à partir de laquelle le gain doit être appliqué.
+            img (numpy.ndarray): L'image d'entrée sous forme de tableau NumPy.
+            t0 (int): La ligne à partir de laquelle le gain doit être appliqué.
             gain (float): Le facteur de gain linéaire initial.
 
         Returns:
             numpy.ndarray: L'image modifiée avec le gain linéaire croissant appliqué à partir de la ligne spécifiée.
         """
-        image_float = image.astype(np.float16)
-        height = image_float.shape[0]
+        bit = self.get_bit_img(img)
+        # Conversion de notre matrice/image en float
+        img = img.astype("float"+str(bit))
+        height = img_float.shape[0]
 
-        for i in range(start_line, height):
-            current_gain = gain + (i - start_line)+1
-            image_float[i] = np.clip(image_float[i] * current_gain, -65535.0, 65535.0)
+        for i in range(t0, height):
+            current_gain = gain + (i - t0)+1
+            img_float[i] = np.clip(img_float[i] * current_gain, -(2**bit) +1, (2**bit)+1)
 
-        image_float = np.clip(image_float, -65535, 65535)
-        return image_float
+        img_float = np.clip(img_float, -(2**bit)+1,(2**bit)-1)
+        return img_float
 
-
-    def gainexp(self, a, t0, image):
+    # en construction
+    def apply_exponentiel_gain(self, img: np.ndarray, t0: int, a: float):
         # Conversion de l'image en flottant pour effectuer les calculs
-        image_float = image.astype(np.float32)
+        bit = self.get_bit_img(img)
+        image_float = img.astype("float"+str(bit))
         samples = image_float.shape[0]
-        """
-        for i in range(t0, samples):
-            # Voir fichier pdf pour voir/comprendre la définition de la fonction du gain exponentielle
-            if(t0 ==0):
-                gain = 0
-            else:
-                if(a==0):
-                    # 
-                    gain = 0
-                else:
-                    b = -np.log(a)/t0
-                    gain = a*np.exp(b*i)
-            if(gain !=0):
-                image_float[i] = np.clip(image_float[i] * gain, 0, 65535)
-        """
-        # Limitation des valeurs aux bornes de 16 bits
-        image_float = np.clip(image_float, 0, 65535)
-        
-        # Conversion de l'image en type de données codé sur 2 octets
-        image_uint16 = image_float.astype(np.uint16)
-        return image_uint16
+        fgain = np.ones(samples)
+        L = np.arange(samples)
+        fgain[t0:] = np.exp(a * (L[t0:] - t0))+1
+        image_float = image_float * fgain[:, np.newaxis]
+        image_float = np.clip(image_float, -(2**bit)+1, (2**bit)-1)
+        return image_float
 
     def gain_function(self, g: float, a_lin: float, amp: float, b:float, t0: float):
         """
@@ -91,34 +78,38 @@ class RadarController():
     Returns:
             ndarray : Retourne le tableau traité.
         """
-        rd = self.rd
-        if not rd.flags.writeable:
-            rd = np.copy(rd)
-        samples, traces = rd.shape
-        fgain = np.ones(samples)
-        L = [k for k in range(samples)]
-        fgain[t0:] = [a_lin*(x-t0) + amp*np.exp(min(b*(x-t0), 10000)) + g for x in L[t0:]]
-        for trace in range(traces):
-            rd[:, trace] = rd[:, trace] * fgain
-        return rd
+
+    
+    def get_bit_img(self, img: np.ndarray):
+        """
+        Récupère le nombre de bits à partir d'un tableau (néccessaire pour les fonctions gain).
+
+        Args:
+            img (numpy.ndarray): L'image d'entrée sous forme de tableau NumPy.
+
+        Returns:
+            int: Le nombre de bits du format.
+        """
+        format = img.dtype.name
+        if format.startswith("float"):
+            return int(format[5:])
+        elif format.startswith("int"):
+            return int(format[3:])
+        else:
+            raise ValueError("Format invalide. Votre tableau numpy est d'un type différent de celui-ci\n- int\n- float")
 
 #Path
-path_rd3_high = "/home/cytech/Stage/Mesures/JOUANY1/JOUANY1_0002_1.rd3"
+path_rd3_high = "/home/cytech/Stage/Mesures/JOUANY1/JOUANY1_0001_1.rd3"
 
 #Test
 test = RadarController(path_rd3_high)
 rd = test.rd
-rd_linear = test.apply_linear_gain(rd, t0 = 0,gain = 5)
-rd_static = test.apply_constant_gain(rd,gain = 5)
-#rd_exp = test.gainexp(1,0,rd)
+#rd_linear = test.apply_linear_gain(rd, t0 = 0,gain = 5)
+rd_static = test.apply_constant_gain(rd,gain = 10)
+rd_exp = test.apply_exponentiel_gain(rd,0,0)
 
 # Affichage de la première image
 #plt.imshow(rd_linear,cmap="Greys")
-plt.imshow(rd_static,cmap="Greys")
+plt.imshow(rd_exp,cmap="Greys")
 # Affichage de la figure
 plt.show()
-"""
-for i in range(rd_linear.shape[0]):
-    for j in range(rd_linear.shape[1]):
-        if(rd_linear[i][j]-rd_static[i][j] == 0):
-            print(i,j)"""

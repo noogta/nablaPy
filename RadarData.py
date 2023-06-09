@@ -86,3 +86,8 @@ class RadarData:
                 # Arrêt la boucle car nous avons trouvé les deux variables souhaités
                 break 
         return value_trace, value_sample
+    
+path_rd3_high = "/home/cytech/Stage/Mesures/JOUANY1/JOUANY1_0001_1.rd3"
+
+test = RadarData(path_rd3_high)
+test.rd_mat()
