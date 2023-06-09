@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import os
 #Constante Globale Dictionnaire
 cste_global = {
-    "c_lum": 299792458,# Vitesse de la lumière dans le vide en m/s
+    "c_lum": 299792458, # Vitesse de la lumière dans le vide en m/s
     }
 
 class RadarData:
@@ -23,21 +23,27 @@ class RadarData:
 
     Return:
         Retourne le tableau numpy contenant les données de la zone sondée.
-    """
+        """
         try:
             if(self.path.endswith(".rd3")):
-                with open(self.path, mode='rb') as rd3data:  # Ouvrir le fichier en mode binaire "rb"
+                # Ouvrir le fichier en mode binaire "rb"
+                with open(self.path, mode='rb') as rd3data:  
                     byte_data = rd3data.read()
-                rd3 = np.frombuffer(byte_data, dtype=np.int16) # rd3 est codé sur 2 octets
-                rd3 = rd3.reshape(self.get_rad()[0], self.get_rad()[1]) # Reshape de rd3
+                # rd3 est codé sur 2 octets
+                rd3 = np.frombuffer(byte_data, dtype=np.int16) 
+                # Reshape de rd3
+                rd3 = rd3.reshape(self.get_rad()[0], self.get_rad()[1]) 
                 rd3 = rd3.transpose()
                 #print("Taille du tableau :", rd3.shape)
                 return rd3
             elif(self.path.endswith(".rd7")):
-                with open(self.path, mode='rb') as rd7data:  # Ouvrir le fichier en mode binaire "rb"
+                # Ouvrir le fichier en mode binaire "rb"
+                with open(self.path, mode='rb') as rd7data:  
                     byte_data = rd7data.read()
-                rd7 = np.frombuffer(byte_data, dtype=np.int32) # rd7 est codé sur 3 octets
-                rd7 = rd7.reshape(self.get_rad()[0], self.get_rad()[1]) # Reshape de rd7
+                    # rd7 est codé sur 3 octets
+                rd7 = np.frombuffer(byte_data, dtype=np.int32)
+                # Reshape de rd7
+                rd7 = rd7.reshape(self.get_rad()[0], self.get_rad()[1]) 
                 rd7 = rd7.transpose()
                 #print("Taille du tableau :", rd7.shape)
                 return rd7
@@ -54,7 +60,6 @@ class RadarData:
             print("Erreur lors de la lecture du fichier:", str(e))
             return e
 
-        
     def get_rad(self):
         """
     Méthode permettant de récupérer les données contenues dans le fichier .rad.
@@ -70,23 +75,14 @@ class RadarData:
 
         # Traitement des lignes du fichier
         for line in lines:
-            line = line.strip()  # Supprimer les espaces en début et fin de ligne
+            line = line.strip()
+            # Supprimer les espaces en début et fin de ligne
             if "SAMPLES" in line:
                 value = line.split(':')[1]
                 value_sample = int(value)
             elif "LAST TRACE" in line:
                 value = line.split(':')[1]
                 value_trace = int(value)
-                break # on arrête la boucle car nous avons trouvé les deux variables souhaités
+                # Arrêt la boucle car nous avons trouvé les deux variables souhaités
+                break 
         return value_trace, value_sample
-        
-
-
-"""
-path_rd3_high = "/home/cytech/Stage/Mesures/JOUANY1/JOUANY1_0001_1.rd3"
-radardata = RadarData(path_rd3_high)
-rd = radardata.rd_mat()
-
-plt.imshow(rd,)
-plt.show()
-#os.system("clear")"""

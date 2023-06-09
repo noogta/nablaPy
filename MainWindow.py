@@ -131,17 +131,18 @@ class MainWindow():
         radar_label = tk.Label(radargram, text="Radar", font=("Arial", 12, "bold"))
         radar_label.pack()
 
-        # Conteneur
+        """# Conteneur
         frames_container = tk.Frame(radargram)
-        frames_container.pack(fill="both", expand=True)
+        frames_container.pack(fill="both", expand=True)"""
 
         # Premier bloc: Matrice
-        mat_frame = tk.Frame(frames_container, bg="green", width=self.radargram_blocks_width()[0])
-        mat_frame.pack(side="left", fill="both", expand=True)
+        mat_frame = tk.Frame(radargram, bg="green", height=self.radargram_blocks_width()[0])
+        mat_frame.pack(side="top", fill="both", expand=True)
 
-        # Deuxième bloc: Impulsion
-        impulsion_frame = tk.Frame(frames_container, bg="blue", width=self.radargram_blocks_width()[1])
-        impulsion_frame.pack(side="left", fill="both", expand=True)
+        # Deuxième bloc: Tool
+        impulsion_frame = tk.Frame(radargram, bg="blue", height=self.radargram_blocks_width()[1])
+        impulsion_frame.pack(side="top", fill="both", expand=True)
+
 
         def update_radargram():
             mat_frame.configure(width=self.radargram_blocks_width()[0])
@@ -153,12 +154,12 @@ class MainWindow():
 
     def radargram_blocks_width(self):
         """Méthode appelé par radargram, elle permet de récupérer la longueur souhaité pour les deux sous fenêtres."""
-        window_width = self.window.winfo_width()
+        window_height= self.window.winfo_height()
         #print("Largeur de la fenêtre :", window_width)
-        radargram_width = int(( 85 / 100) * window_width)
-        mat_width = int((80 / 100) * radargram_width)
-        impulsion_width = int((20 / 100) * radargram_width)
-        return mat_width, impulsion_width
+        radargram_height = int(( 85 / 100) * window_height)
+        mat_height = int((80 / 100) * radargram_height)
+        tool_height= int((20 / 100) * radargram_height)
+        return mat_height, tool_height
     
     def update_blocks(self):
         self.update_sidebar()
