@@ -85,7 +85,6 @@ class RadarController():
         fgain = np.ones(samples)
         L = np.arange(samples)
         fgain[t0:] = np.exp(a * (L[t0:] - t0))+g*L[t0:]+a_lin*(L[t0:]-t0)
-        print(fgain)
         image_float = image_float * fgain[:, np.newaxis]
         
         image_float = np.clip(image_float, -(2**bit)+1, (2**bit)-1)
@@ -108,8 +107,9 @@ class RadarController():
         elif format.startswith("int"):
             return int(format[3:])
         else:
-            raise ValueError("Format invalide. Votre tableau numpy est d'un type différent de celui-ci\n- int\n- float")
+            raise ValueError("Format invalide. Votre tableau numpy est d'un type différent de celui-ci:\n- int\n- float")
 
+"""
 #Path
 path_rd3_high = "/home/cytech/Stage/Mesures/JOUANY1/JOUANY1_0001_1.rd3"
 
@@ -119,9 +119,10 @@ rd = test.rd
 rd_linear = test.apply_linear_gain(rd, t0 = 0,gain = 1)
 rd_static = test.apply_constant_gain(rd,gain = 10)
 rd_exp = test.apply_exponentiel_gain(rd,50,0.1)
-rd_tot = test.apply_total_gain(rd,2,g = 5, a_lin = 2, a = 0)
+rd_tot = test.apply_total_gain(rd,0,g = 0, a_lin = 2, a = 0.3)
 # Affichage de la première image
 #plt.imshow(rd_linear,cmap="Greys")
-plt.imshow(rd_tot,cmap="Greys")
+plt.imshow(rd_exp,cmap="Greys")
 # Affichage de la figure
 plt.show()
+"""

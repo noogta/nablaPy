@@ -1,15 +1,28 @@
 import tkinter as tk
-import RadarController
+import RadarController,RadarData
 from tkinter import filedialog as fd
+from PIL import ImageTk
+import mimetypes as mt
 import os
+
+########### Ajouter les extensions de vos données ###########
+
+List_of_extension = ['.rd3','.rd7']
+for i in range(len(List_of_extension)):
+    mt.add_type('application/octet-stream', List_of_extension[i])
+
+#############################################################
 
 class MainWindow():
     """Cette classe représente la fenêtre principale."""
-    def __init__(self, appname):
+    def __init__(self, appname: str, data: RadarData, controller: RadarController):
         """
         Constructeur de la classe MainWindow.
 
         Args:
+                appname (str): Nom de l'application
+                data:
+                controller:
                 window (Object from tk.Tk) : Fenêtre principale
                 title (string): Nom de l'application
                 posX (int): Position selon l'axe x de notre application
@@ -68,15 +81,18 @@ class MainWindow():
 
 
     def open_menu_command(self):
-        selected_directory = fd.askdirectory()
-        print("Dossier sélectionné :", selected_directory)
-        self.update_file_list(selected_directory)
+        self.selected_directory = fd.askdirectory()
+        print("Dossier sélectionné :", self.selected_directory)
+        self.update_file_list(self.selected_directory)
 
     def update_file_list(self, directory):
         file_list = os.listdir(directory)
         self.file_listbox.delete(0, tk.END)
         for file in file_list:
-            self.file_listbox.insert(tk.END, file)
+            file_path = os.path.join(directory, file)
+            if mt.guess_type(file_path)[0] == 'application/octet-stream':
+                self.file_listbox.insert(tk.END, file)
+
 
     def save(self):
         "En construction"
@@ -102,6 +118,7 @@ class MainWindow():
 
         self.file_listbox = tk.Listbox(file_frame, yscrollcommand=file_scrollbar.set)
         self.file_listbox.pack(side="left", fill="both", expand=True)
+        self.file_listbox.bind("<<ListboxSelect>>", self.select_file)
 
         file_scrollbar.config(command=self.file_listbox.yview)
 
@@ -116,6 +133,13 @@ class MainWindow():
 
         self.window.bind("<Configure>", lambda event: self.window.after(1, self.update_blocks))
 
+    def select_file(self, event):
+        selected_index = self.file_listbox.curselection()
+        if selected_index:
+            selected_file = self.file_listbox.get(selected_index)
+            file_path = os.path.join(self.selected_directory, selected_file)
+            print("Chemin du Fichier sélectionné :", file_path)
+            # Vous pouvez afficher le chemin complet du fichier dans un Label ou tout autre widget de votre choix
 
     def sidebar_width(self):
         """Méthode appelé par sidebar, elle permet de récupérer la longueur de la fenêtre pour prendre le poucentage souhaité."""
@@ -138,6 +162,10 @@ class MainWindow():
         # Premier bloc: Matrice
         mat_frame = tk.Frame(radargram, bg="green", height=self.radargram_blocks_width()[0])
         mat_frame.pack(side="top", fill="both", expand=True)
+        """
+        photo = tk.Image.PhotoImage(image)
+        image_label = tk.Label(mat_frame, image=photo)
+        image_label.pack()"""
 
         # Deuxième bloc: Tool
         impulsion_frame = tk.Frame(radargram, bg="blue", height=self.radargram_blocks_width()[1])

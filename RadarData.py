@@ -87,7 +87,26 @@ class RadarData:
                 break 
         return value_trace, value_sample
     
-path_rd3_high = "/home/cytech/Stage/Mesures/JOUANY1/JOUANY1_0001_1.rd3"
+    def add_list_extension(self, ext: str):
+        path = os.path.dirname(__file__)
+        with open(path+"/data/ext.txt", 'a') as file:
+            file.write("\n"+ext)
 
-test = RadarData(path_rd3_high)
-test.rd_mat()
+    def get_list_extension(self):
+        path = os.path.dirname(__file__)
+        with open(path+"/data/ext.txt", 'r') as file:
+            f = (file.read())
+        elements = f.split("\n")
+        return elements
+
+    def delete_list_extension(self, ext_del: str):
+        path = os.path.dirname(__file__)
+        list_ext = self.get_list_extension()
+        if ext_del in list_ext:
+            list_ext.remove(ext_del)
+            # Ouvrir le fichier en mode écriture et écrire le contenu mis à jour
+            with open(path+"/data/ext.txt", "w") as file:
+                for i in range(len(list_ext)):
+                    file.write(list_ext[i]+"\n")
+        else:
+            print(f"{ext_del} n'est pas présent dans le fichier.")

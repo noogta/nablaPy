@@ -1,6 +1,7 @@
-from MainWindow import MainWindow
+from MainWindow import *
 
 __appname__ = "NablaPy"
-
-mainwindow = MainWindow(__appname__)
+data  = RadarData
+controller = RadarController
+mainwindow = MainWindow(__appname__,data,controller)
 mainwindow.window.mainloop()
