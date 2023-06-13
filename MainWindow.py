@@ -2,6 +2,7 @@ import tkinter as tk
 from RadarData import RadarData 
 from RadarController import RadarController
 from tkinter import filedialog as fd
+from tkinter import ttk
 from PIL import ImageTk
 import mimetypes as mt
 import os
@@ -139,7 +140,7 @@ class MainWindow():
         file_scrollbar_x.config(command=self.file_listbox.xview)
         file_scrollbar_y.config(command=self.file_listbox.yview)
 
-        # Bouton de filtrage
+        # Bouton de filtrage et de désactation
         self.filter_button_text = tk.StringVar(value="Haute Fréquence")
         filter_button = tk.Button(file_frame, textvariable=self.filter_button_text, command=self.filter_list_file)
         filter_button.pack(fill="both")
@@ -148,9 +149,103 @@ class MainWindow():
         disable_button = tk.Button(file_frame, textvariable=self.disable_button_text, command=self.disable_filter)
         disable_button.pack(fill="both")
 
-        # Deuxième bloc: Gain Filtrage
-        second_block = tk.Frame(sidebar, bg="red")
+        # Deuxième bloc: Outils
+        second_block = tk.Frame(sidebar)
         second_block.pack(side="left", fill="both", expand=True)
+
+        # Widget Notebook
+        notebook = ttk.Notebook(second_block)
+        notebook.pack(fill="both", expand=True)
+
+        # Premier onglet: Gains/Filtres
+        gain_filter_tab = ttk.Frame(notebook)
+        notebook.add(gain_filter_tab, text="Gains/Filtres")
+
+        # Titre
+        gain_frame = tk.Frame(gain_filter_tab)
+        gain_frame.pack(fill="both")
+
+        gain_label = tk.Label(gain_frame, text="Gain", font=("Arial", 12, "bold"))
+        gain_label.pack()
+
+        # Première partie: Champs des différents gains
+        gain_const_frame = tk.Frame(gain_filter_tab)
+        gain_const_frame.pack(fill="both")
+
+        gain_const_label = tk.Label(gain_const_frame, text="Gain constant", font=("Arial", 12, "bold"))
+        gain_const_label.pack()
+
+        gain_const_entry = tk.Entry(gain_const_frame)
+        gain_const_entry.pack()
+
+        # Séparateur
+        separator1 = ttk.Separator(gain_filter_tab, orient="horizontal")
+        separator1.pack(fill="x")
+
+        gain_lin_frame = tk.Frame(gain_filter_tab)
+        gain_lin_frame.pack(fill="both")
+
+        gain_lin_label = tk.Label(gain_lin_frame, text="Gain linéaire", font=("Arial", 12, "bold"))
+        gain_lin_label.pack()
+
+        gain_lin_entry = tk.Entry(gain_lin_frame)
+        gain_lin_entry.pack()
+
+        # Séparateur
+        separator2 = ttk.Separator(gain_filter_tab, orient="horizontal")
+        separator2.pack(fill="x")
+
+        gain_exp_frame = tk.Frame(gain_filter_tab)
+        gain_exp_frame.pack(fill="both")
+
+        gain_exp_label = tk.Label(gain_exp_frame, text="Gain exponentiel", font=("Arial", 12, "bold"))
+        gain_exp_label.pack()
+
+        gain_exp_entry = tk.Entry(gain_exp_frame)
+        gain_exp_entry.pack()
+
+        # Séparateur
+        separator3 = ttk.Separator(gain_filter_tab, orient="horizontal")
+        separator3.pack(fill="x")
+
+        # Titre
+        pass_filter_frame = tk.Frame(gain_filter_tab)
+        pass_filter_frame.pack(fill="both")
+
+        pass_filter_frame = tk.Label(pass_filter_frame, text="Filtre", font=("Arial", 12, "bold"))
+        pass_filter_frame.pack()
+
+        # Deuxième partie: Champs des différents Filtres
+
+        high_pass_filter_frame = tk.Frame(gain_filter_tab)
+        high_pass_filter_frame.pack(fill="both")
+
+        high_pass_filter_frame_label = tk.Label(high_pass_filter_frame, text="Filtre passe-haut", font=("Arial", 12, "bold"))
+        high_pass_filter_frame_label.pack()
+
+        high_pass_filter_entry = tk.Entry(high_pass_filter_frame)
+        high_pass_filter_entry.pack()
+
+        low_pass_filter_frame = tk.Frame(gain_filter_tab)
+        low_pass_filter_frame.pack(fill="both")
+
+        low_pass_filter_frame_label = tk.Label(low_pass_filter_frame, text="Filtre passe-haut", font=("Arial", 12, "bold"))
+        low_pass_filter_frame_label.pack()
+
+        low_pass_filter_entry = tk.Entry(low_pass_filter_frame)
+        low_pass_filter_entry.pack()
+
+        # Séparateur
+        separator1 = ttk.Separator(gain_filter_tab, orient="horizontal")
+        separator1.pack(fill="x")
+
+        # Deuxième onglet: En construction
+        construction_tab = ttk.Frame(notebook)
+        notebook.add(construction_tab, text="En construction")
+
+        construction_label = tk.Label(construction_tab, text="Cette partie est en construction...", font=("Arial", 12, "bold"))
+        construction_label.pack()
+
 
         def update_sidebar():
             sidebar.configure(width=self.sidebar_width())
