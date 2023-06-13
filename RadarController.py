@@ -4,9 +4,8 @@ import matplotlib.pyplot as plt
 
 import re
 class RadarController():
-    def __init__(self,path):
-        self.data = RadarData(path)
-        self.rd = self.data.rd_mat()
+    def __init__(self, data: RadarData, path: str):
+        self.data = data
 
     def apply_constant_gain(self, img:np.ndarray, gain: float):
         """

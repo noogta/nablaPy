@@ -7,17 +7,15 @@ cste_global = {
     }
 
 class RadarData:
-    """RadarData: Classe contenant toutes les méthodes permettant avoir accès aux différentes données"""
-    def __init__(self,path: str):
+    """RadarData: Classe contenant toutes les méthodes permettant d'avoir accès aux différentes données"""
+    def __init__(self):
         """
     Constructeur de la classe RadarData.
 
     Args:
-                path (str): chemin du fichier
         """
-        self.path = path
     
-    def rd_mat(self):
+    def rd_mat(self, path: str):
         """
     Méthode permettant de récupérer la zone sondée à partir d'un fichier .rd3 ou .rd7.
 
@@ -25,9 +23,9 @@ class RadarData:
         Retourne le tableau numpy contenant les données de la zone sondée.
         """
         try:
-            if(self.path.endswith(".rd3")):
+            if(path.endswith(".rd3")):
                 # Ouvrir le fichier en mode binaire "rb"
-                with open(self.path, mode='rb') as rd3data:  
+                with open(path, mode='rb') as rd3data:  
                     byte_data = rd3data.read()
                 # rd3 est codé sur 2 octets
                 rd3 = np.frombuffer(byte_data, dtype=np.int16) 
@@ -36,9 +34,9 @@ class RadarData:
                 rd3 = rd3.transpose()
                 #print("Taille du tableau :", rd3.shape)
                 return rd3
-            elif(self.path.endswith(".rd7")):
+            elif(path.endswith(".rd7")):
                 # Ouvrir le fichier en mode binaire "rb"
-                with open(self.path, mode='rb') as rd7data:  
+                with open(path, mode='rb') as rd7data:  
                     byte_data = rd7data.read()
                     # rd7 est codé sur 3 octets
                 rd7 = np.frombuffer(byte_data, dtype=np.int32)
@@ -50,24 +48,24 @@ class RadarData:
             
             #README
             # Si vous souhaitez rajouter d'autres format:
-            # -1 Ajouter elif(self.path.endswith(".votre_format")):
+            # -1 Ajouter elif(path.endswith(".votre_format")):
             # -2 Veuillez vous renseigner sur la nature de vos données binaire, héxadécimal ...
             # -3 Lire les fichiers et ensuite les transférer dans un tableau numpy
             # -4 Redimmensionnez votre tableau à l'aide du nombre de samples et de traces
             # -5 Transposez le tableau
 
         except Exception as e:
-            print("Erreur lors de la lecture du fichier:", str(e))
+            print("Erreur lors de la lecture du fichier.\nVérifier que l'extension de votre fichier soit lisible.\n Pour cela:\n Modifier --> Afficher les extensions\n\n\n\n", str(e))
             return e
 
-    def get_rad(self):
+    def get_rad(self, path: str):
         """
     Méthode permettant de récupérer les données contenues dans le fichier .rad.
 
     Return:
         Retourne le tableau numpy contenant les données de la zone sondée.
         """
-        rad_file_path = self.path[:-2]+"ad"
+        rad_file_path = path[:-2]+"ad"
 
         # Lecture du fichier .rad
         with open(rad_file_path, 'r') as file:

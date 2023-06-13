@@ -1,21 +1,13 @@
 import tkinter as tk
-import RadarController,RadarData
+from RadarData import RadarData 
+from RadarController import RadarController
 from tkinter import filedialog as fd
 from PIL import ImageTk
 import mimetypes as mt
 import os
-
-########### Ajouter les extensions de vos données ###########
-
-List_of_extension = ['.rd3','.rd7']
-for i in range(len(List_of_extension)):
-    mt.add_type('application/octet-stream', List_of_extension[i])
-
-#############################################################
-
 class MainWindow():
     """Cette classe représente la fenêtre principale."""
-    def __init__(self, appname: str, data: RadarData, controller: RadarController):
+    def __init__(self, appname: str):
         """
         Constructeur de la classe MainWindow.
 
@@ -29,6 +21,7 @@ class MainWindow():
                 posY (int): Position selon l'axe y de notre application
                 per_sidebar (int): Pourcentage de la longueur de la barre latérale
         """
+        self.data = RadarData()
         self.window = tk.Tk()
         self.window.title(appname)
         self.window
@@ -42,11 +35,13 @@ class MainWindow():
 
         # Menu
         self.menu()
-
         # Frame principale
         self.window_frame = tk.Frame(self.window, bg="white smoke")
         self.window_frame.pack(fill="both", expand=True)
         # Barre de contrôle
+        # État initial du filtre
+        self.filter_state = "high"
+        self.disable_state = "off"
         self.sidebar(self.window_frame)
 
         # Radargramme
@@ -70,6 +65,9 @@ class MainWindow():
         # Création du sous-menu Edit
         edit_menu = tk.Menu(menu_bar, tearoff=False)
         menu_bar.add_cascade(label="Modifier", menu=edit_menu)
+        edit_menu.add_command(label="Ajouter une extension", command=self.add_ext)
+        edit_menu.add_command(label="Supprimer une extension", command=self.del_ext)
+
         """
         En contruction:
         file_menu.add_command(label="Open", command=self.file_menu_command)
@@ -79,50 +77,78 @@ class MainWindow():
         view_menu = tk.Menu(menu_bar, tearoff=False)
         menu_bar.add_cascade(label="Fenêtre", menu=view_menu)
 
-
+    ### Fichier ###
     def open_menu_command(self):
         self.selected_directory = fd.askdirectory()
         print("Dossier sélectionné :", self.selected_directory)
         self.update_file_list(self.selected_directory)
 
-    def update_file_list(self, directory):
-        file_list = os.listdir(directory)
+    ### Modifier ###
+    def add_ext(self):
+        length = 600
+        window_add = tk.Toplevel()
+        window_add.title("Ajouter une extension")
+        window_add.geometry("{}x{}+{}+{}".format(length, length, self.posX + (self.window.winfo_width()-length) // 2 ,self.posY+30))
+    
+    def del_ext(self):
+        window_add = tk.Toplevel()
+        window_add.title("Supprimer une extension")
+        window_add.geometry("{}x{}+{}+{}".format(400, 400,self.posX + (self.window.winfo_width()-400) // 2 ,self.posY+30))
+
+    def update_file_list(self, directory: str):
+        self.set_list_of_extension()
+        self.file_list = os.listdir(directory)
+        self.file_list.sort()
         self.file_listbox.delete(0, tk.END)
-        for file in file_list:
-            file_path = os.path.join(directory, file)
-            if mt.guess_type(file_path)[0] == 'application/octet-stream':
-                self.file_listbox.insert(tk.END, file)
+        self.filter_list_file()
 
 
     def save(self):
         "En construction"
         return 0
+    
 
     def export(self):
         "En construction"
         return 0
 
-    def sidebar(self,parent):
+    def sidebar(self, parent):
         sidebar = tk.Frame(parent, width=self.sidebar_width(), bg="black")
-        sidebar.pack(side="left", fill="both",padx=str(self.width_pad()),pady=str(self.width_pad()))
+        sidebar.pack(side="left", fill="both", padx=str(self.width_pad()), pady=str(self.width_pad()))
 
         # Premier bloc: Liste des fichiers
         file_frame = tk.Frame(sidebar)
         file_frame.pack(fill="both")
 
-        file_label = tk.Label(file_frame, text="Fichier", font=("Arial", 12, "bold"))
+        list_frame = tk.Frame(file_frame)
+        list_frame.pack(fill="both")
+
+        file_label = tk.Label(list_frame, text="Fichier", font=("Arial", 12, "bold"))
         file_label.pack()
 
-        file_scrollbar = tk.Scrollbar(file_frame)
-        file_scrollbar.pack(side="right", fill="y")
+        file_scrollbar_x = tk.Scrollbar(list_frame, orient="horizontal")
+        file_scrollbar_x.pack(side="bottom", fill="x")
 
-        self.file_listbox = tk.Listbox(file_frame, yscrollcommand=file_scrollbar.set)
+        file_scrollbar_y = tk.Scrollbar(list_frame, orient="vertical")
+        file_scrollbar_y.pack(side="right", fill="y")
+
+        self.file_listbox = tk.Listbox(list_frame, xscrollcommand=file_scrollbar_x.set, yscrollcommand=file_scrollbar_y.set)
         self.file_listbox.pack(side="left", fill="both", expand=True)
         self.file_listbox.bind("<<ListboxSelect>>", self.select_file)
 
-        file_scrollbar.config(command=self.file_listbox.yview)
+        file_scrollbar_x.config(command=self.file_listbox.xview)
+        file_scrollbar_y.config(command=self.file_listbox.yview)
 
-        # Deuxième bloc: Outils
+        # Bouton de filtrage
+        self.filter_button_text = tk.StringVar(value="Haute Fréquence")
+        filter_button = tk.Button(file_frame, textvariable=self.filter_button_text, command=self.filter_list_file)
+        filter_button.pack(fill="both")
+
+        self.disable_button_text = tk.StringVar(value="Désactiver le filtrage de fréquence")
+        disable_button = tk.Button(file_frame, textvariable=self.disable_button_text, command=self.disable_filter)
+        disable_button.pack(fill="both")
+
+        # Deuxième bloc: Gain Filtrage
         second_block = tk.Frame(sidebar, bg="red")
         second_block.pack(side="left", fill="both", expand=True)
 
@@ -133,14 +159,67 @@ class MainWindow():
 
         self.window.bind("<Configure>", lambda event: self.window.after(1, self.update_blocks))
 
+    def filter_list_file(self):
+        try:
+            self.file_listbox.delete(0, tk.END)
+            if self.filter_state == "high":
+                self.filter_state = "low"
+                self.filter_button_text.set("Basse Fréquence")
+                for file in self.file_list:
+                    if(file.find("_1") != -1):
+                        file_path = os.path.join(self.selected_directory, file)
+                        if mt.guess_type(file_path)[0] == 'application/octet-stream':
+                            self.file_listbox.insert(tk.END, file)
+            else:
+                self.filter_state = "high"
+                self.filter_button_text.set("Haute Fréquence")
+                for file in self.file_list:
+                    if(file.find("_2") != -1):
+                        file_path = os.path.join(self.selected_directory, file)
+                        if mt.guess_type(file_path)[0] == 'application/octet-stream':
+                            self.file_listbox.insert(tk.END, file)
+        except Exception as e:
+            # Inutile mais faut bien écrire quelque chose
+            del(e)
+
+    def disable_filter(self):
+        try:
+            self.file_listbox.delete(0, tk.END)
+            if(self.disable_state == "off"):
+                self.disable_state = "on"
+                self.disable_button_text.set("Désactiver le filtrage de fréquence")
+                if(self.filter_button_text == "Haute Fréquence"):
+                    for file in self.file_list:
+                        if(file.find("_1") != -1):
+                            file_path = os.path.join(self.selected_directory, file)
+                            if mt.guess_type(file_path)[0] == 'application/octet-stream':
+                                self.file_listbox.insert(tk.END, file)
+                else:
+                    for file in self.file_list:
+                        if(file.find("_2") != -1):
+                            file_path = os.path.join(self.selected_directory, file)
+                            if mt.guess_type(file_path)[0] == 'application/octet-stream':
+                                self.file_listbox.insert(tk.END, file)
+
+            else:
+                self.disable_state = "off"
+                self.disable_button_text.set("Activer le filtrage de fréquence")
+                for file in self.file_list:
+                    file_path = os.path.join(self.selected_directory, file)
+                    if mt.guess_type(file_path)[0] == 'application/octet-stream':
+                        self.file_listbox.insert(tk.END, file)
+        except Exception as e:
+            # Inutile mais faut bien écrire quelque chose
+            del(e)
+
     def select_file(self, event):
         selected_index = self.file_listbox.curselection()
         if selected_index:
             selected_file = self.file_listbox.get(selected_index)
             file_path = os.path.join(self.selected_directory, selected_file)
+            self.controller = RadarController(self.data, file_path)
             print("Chemin du Fichier sélectionné :", file_path)
-            # Vous pouvez afficher le chemin complet du fichier dans un Label ou tout autre widget de votre choix
-
+    
     def sidebar_width(self):
         """Méthode appelé par sidebar, elle permet de récupérer la longueur de la fenêtre pour prendre le poucentage souhaité."""
         window_width = self.window.winfo_width()
@@ -152,7 +231,7 @@ class MainWindow():
         radargram = tk.Frame(parent, bg="pink")
         radargram.pack(side="left", fill="both", expand=True, padx=str(self.width_pad()), pady=str(self.height_pad()))
 
-        radar_label = tk.Label(radargram, text="Radar", font=("Arial", 12, "bold"))
+        radar_label = tk.Label(radargram, text="Radargramme", font=("Arial", 12, "bold"))
         radar_label.pack()
 
         """# Conteneur
@@ -206,4 +285,9 @@ class MainWindow():
         #print("Hauteur de la fenêtre :", window_height)
         sidebar_height = int((1 / 100)* window_height)
         return sidebar_height
+    
+    def set_list_of_extension(self):
+        List_of_extension = self.data.get_list_extension()
+        for i in range(len(List_of_extension)):
+            mt.add_type('application/octet-stream', List_of_extension[i])
     
