@@ -3,9 +3,11 @@ from RadarData import RadarData
 from RadarController import RadarController
 from tkinter import filedialog as fd
 from tkinter import ttk
-from PIL import ImageTk
+from PIL import Image, ImageTk
 import mimetypes as mt
 import os
+import matplotlib.pyplot as plt
+
 class MainWindow():
     """Cette classe représente la fenêtre principale."""
     def __init__(self, appname: str):
@@ -46,6 +48,7 @@ class MainWindow():
         self.sidebar(self.window_frame)
 
         # Radargramme
+        self.file_path = ""
         self.radargram(self.window_frame)
 
 
@@ -140,13 +143,13 @@ class MainWindow():
         file_scrollbar_x.config(command=self.file_listbox.xview)
         file_scrollbar_y.config(command=self.file_listbox.yview)
 
-        # Bouton de filtrage et de désactation
+        # Bouton de filtrage et de désactivation
         self.filter_button_text = tk.StringVar(value="Haute Fréquence")
         filter_button = tk.Button(file_frame, textvariable=self.filter_button_text, command=self.filter_list_file)
         filter_button.pack(fill="both")
 
         self.disable_button_text = tk.StringVar(value="Désactiver le filtrage de fréquence")
-        disable_button = tk.Button(file_frame, textvariable=self.disable_button_text, command=self.disable_filter)
+        disable_button = tk.Button(file_frame, textvariable=self.disable_button_text, font=("Arial", 8, "bold"), command=self.disable_filter)
         disable_button.pack(fill="both")
 
         # Deuxième bloc: Outils
@@ -178,9 +181,18 @@ class MainWindow():
         gain_const_entry = tk.Entry(gain_const_frame)
         gain_const_entry.pack()
 
+        def update_gain_const_value():
+            try:
+                gain_const_value = float(gain_const_entry.get())
+            except ValueError:
+                gain_const_value = 0.0  # Valeur par défaut en cas d'erreur de conversion
+            return gain_const_value
+
+        gain_const_entry.bind("<Return>", lambda event: self.update_img(event, update_gain_lin_value()[1], update_gain_exp_value()[1], update_gain_const_value(),update_gain_lin_value()[0],update_gain_exp_value()[0]))
+        
         # Séparateur
-        separator1 = ttk.Separator(gain_filter_tab, orient="horizontal")
-        separator1.pack(fill="x")
+        separator = ttk.Separator(gain_filter_tab, orient="horizontal")
+        separator.pack(fill="x")
 
         gain_lin_frame = tk.Frame(gain_filter_tab)
         gain_lin_frame.pack(fill="both")
@@ -188,12 +200,30 @@ class MainWindow():
         gain_lin_label = tk.Label(gain_lin_frame, text="Gain linéaire", font=("Arial", 12, "bold"))
         gain_lin_label.pack()
 
-        gain_lin_entry = tk.Entry(gain_lin_frame)
+        gain_lin_entry = tk.Entry(gain_lin_frame, )
         gain_lin_entry.pack()
 
+        t0_lin_label = tk.Label(gain_lin_frame, text="t0", font=("Arial", 12, "bold"))
+        t0_lin_label.pack()
+
+        t0_lin_entry = tk.Entry(gain_lin_frame)
+        t0_lin_entry.pack()
+
+        def update_gain_lin_value():
+            try:
+                gain_lin_value = float(gain_lin_entry.get())
+                t0_lin_value = int(t0_lin_entry.get())
+            except ValueError:
+                gain_lin_value = 0.0  # Valeur par défaut
+                t0_lin_value = 0  # Valeur par défaut
+            return gain_lin_value, t0_lin_value
+
+        gain_lin_entry.bind("<Return>", lambda event: self.update_img(event, update_gain_lin_value()[1], update_gain_exp_value()[1], update_gain_const_value(),update_gain_lin_value()[0],update_gain_exp_value()[0]))
+        t0_lin_entry.bind("<Return>", lambda event: self.update_img(event, update_gain_lin_value()[1], update_gain_exp_value()[1], update_gain_const_value(),update_gain_lin_value()[0],update_gain_exp_value()[0]))
+
         # Séparateur
-        separator2 = ttk.Separator(gain_filter_tab, orient="horizontal")
-        separator2.pack(fill="x")
+        separator1 = ttk.Separator(gain_filter_tab, orient="horizontal")
+        separator1.pack(fill="x")
 
         gain_exp_frame = tk.Frame(gain_filter_tab)
         gain_exp_frame.pack(fill="both")
@@ -204,9 +234,27 @@ class MainWindow():
         gain_exp_entry = tk.Entry(gain_exp_frame)
         gain_exp_entry.pack()
 
+        t0_exp_label = tk.Label(gain_exp_frame, text="t0", font=("Arial", 12, "bold"))
+        t0_exp_label.pack()
+
+        t0_exp_entry = tk.Entry(gain_exp_frame)
+        t0_exp_entry.pack()
+
+        def update_gain_exp_value():
+            try:
+                gain_exp_value = float(gain_exp_entry.get())
+                t0_exp_value = int(t0_exp_entry.get())
+            except ValueError:
+                gain_exp_value = 0.0  # Valeur par défaut
+                t0_exp_value = 0  # Valeur par défaut
+            return gain_exp_value, t0_exp_value
+        
+        gain_exp_entry.bind("<Return>", lambda event: self.update_img(event, update_gain_lin_value()[1], update_gain_exp_value()[1], update_gain_const_value(),update_gain_lin_value()[0],update_gain_exp_value()[0]))
+        t0_exp_entry.bind("<Return>", lambda event: self.update_img(event, update_gain_lin_value()[1], update_gain_exp_value()[1], update_gain_const_value(),update_gain_lin_value()[0],update_gain_exp_value()[0]))
+        
         # Séparateur
-        separator3 = ttk.Separator(gain_filter_tab, orient="horizontal")
-        separator3.pack(fill="x")
+        separator2 = ttk.Separator(gain_filter_tab, orient="horizontal")
+        separator2.pack(fill="x")
 
         # Titre
         pass_filter_frame = tk.Frame(gain_filter_tab)
@@ -236,8 +284,8 @@ class MainWindow():
         low_pass_filter_entry.pack()
 
         # Séparateur
-        separator1 = ttk.Separator(gain_filter_tab, orient="horizontal")
-        separator1.pack(fill="x")
+        separator3 = ttk.Separator(gain_filter_tab, orient="horizontal")
+        separator3.pack(fill="x")
 
         # Deuxième onglet: En construction
         construction_tab = ttk.Frame(notebook)
@@ -306,14 +354,34 @@ class MainWindow():
         except Exception as e:
             # Inutile mais faut bien écrire quelque chose
             del(e)
+    """
+    def disable_mul(self):
+        try:
+            L = []
+            for file in self.file_list:
+                if(file.endswith)
+            else:
+                self.filter_state = "high"
+                self.filter_button_text.set("Haute Fréquence")
+                for file in self.file_list:
+                    if(file.find("_2") != -1):
+                        file_path = os.path.join(self.selected_directory, file)
+                        if mt.guess_type(file_path)[0] == 'application/octet-stream':
+                            self.file_listbox.insert(tk.END, file)
+
+        except Exception as e:
+            del(e)
+    """
 
     def select_file(self, event):
         selected_index = self.file_listbox.curselection()
         if selected_index:
             selected_file = self.file_listbox.get(selected_index)
             file_path = os.path.join(self.selected_directory, selected_file)
-            self.controller = RadarController(self.data, file_path)
+            self.controller = RadarController(self.data)
+            print("Controller crée")
             print("Chemin du Fichier sélectionné :", file_path)
+            self.file_path = file_path
     
     def sidebar_width(self):
         """Méthode appelé par sidebar, elle permet de récupérer la longueur de la fenêtre pour prendre le poucentage souhaité."""
@@ -329,43 +397,69 @@ class MainWindow():
         radar_label = tk.Label(radargram, text="Radargramme", font=("Arial", 12, "bold"))
         radar_label.pack()
 
-        """# Conteneur
-        frames_container = tk.Frame(radargram)
-        frames_container.pack(fill="both", expand=True)"""
-
         # Premier bloc: Matrice
-        mat_frame = tk.Frame(radargram, bg="green", height=self.radargram_blocks_width()[0])
-        mat_frame.pack(side="top", fill="both", expand=True)
+        self.img_frame = tk.Frame(radargram, bg="green", height=self.radargram_blocks_width()[0])
+        self.img_frame.pack(side="top", fill="both", expand=True)
+
+
+        self.img_canvas = tk.Canvas(self.img_frame)
         """
-        photo = tk.Image.PhotoImage(image)
-        image_label = tk.Label(mat_frame, image=photo)
-        image_label.pack()"""
+        Dans ce bloc est affiché une image. La fonction qui s'occupe de cela se nomme update_img
+        """
 
         # Deuxième bloc: Tool
         impulsion_frame = tk.Frame(radargram, bg="blue", height=self.radargram_blocks_width()[1])
         impulsion_frame.pack(side="top", fill="both", expand=True)
 
 
-        def update_radargram():
-            mat_frame.configure(width=self.radargram_blocks_width()[0])
+        def update_dim_radargram():
+            self.img_frame.configure(width=self.radargram_blocks_width()[0])
             impulsion_frame.configure(width=self.radargram_blocks_width()[1])
-        
-        self.update_radargram = update_radargram
+            
+            
+        self.update_dim_radargram = update_dim_radargram
 
         self.window.bind("<Configure>", lambda event: self.window.after(1, self.update_blocks))
+
+    def update_img(self, event, t0_lin: int, t0_exp: int, g: float, a_lin: float, a: float):
+        try:
+            path_file = self.file_path
+            img = self.data.rd_mat(path_file)
+            img = self.controller.apply_total_gain(img, t0_lin, t0_exp, g, a_lin, a)
+            # Conversion des données en image PIL
+            img = Image.fromarray(img)
+            self.img_tk = ImageTk.PhotoImage(img)
+
+            self.img_canvas.configure(width=img.width, height=img.height)
+            self.img_canvas.pack()
+
+            image_label = self.img_canvas.create_image(0, 0, anchor=tk.NW, image=self.img_tk)
+
+            # Mettre à jour la taille du canvas en cas de redimensionnement
+            def update_img(event):
+                self.img_canvas.configure(width=event.width, height=event.height)
+                self.img_canvas.itemconfigure(image_label, image=self.img_tk)
+
+            self.img_frame.bind("<Configure>", update_img)
+
+        except Exception as e:
+            #print("Aucune image n'a encore été définie.", str(e))
+            print(e)
+
+
 
     def radargram_blocks_width(self):
         """Méthode appelé par radargram, elle permet de récupérer la longueur souhaité pour les deux sous fenêtres."""
         window_height= self.window.winfo_height()
         #print("Largeur de la fenêtre :", window_width)
-        radargram_height = int(( 85 / 100) * window_height)
-        mat_height = int((80 / 100) * radargram_height)
-        tool_height= int((20 / 100) * radargram_height)
+        radargram_height = int(window_height)
+        mat_height = int((85 / 100) * radargram_height)
+        tool_height= int((15 / 100) * radargram_height)
         return mat_height, tool_height
     
     def update_blocks(self):
         self.update_sidebar()
-        self.update_radargram()
+        self.update_dim_radargram()
 
     def width_pad(self):
         """Méthode appelé par sidebar, elle permet de récupérer la hauteur de la fenêtre pour prendre le poucentage souhaité afin d'avoir un padx dynamique."""
@@ -386,3 +480,4 @@ class MainWindow():
         for i in range(len(List_of_extension)):
             mt.add_type('application/octet-stream', List_of_extension[i])
     
+    #filtre trace moyenne

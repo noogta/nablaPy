@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 
 import re
 class RadarController():
-    def __init__(self, data: RadarData, path: str):
+    def __init__(self, data: RadarData):
         self.data = data
 
     def apply_constant_gain(self, img:np.ndarray, gain: float):
@@ -63,7 +63,7 @@ class RadarController():
         image_float = np.clip(image_float, -(2**bit)+1, (2**bit)-1)
         return image_float
 
-    def apply_total_gain(self, img: np.ndarray, t0: int, g: float, a_lin: float, a: float):
+    def apply_total_gain(self, img: np.ndarray, t0_lin: int, t0_exp: int, g: float, a_lin: float, a: float):
         """
     Méthode permettant d'appliquer le gain souhaité à l'image.
     Afin de comprendre la construction des fonctions gains (cf Doc/NablaPy.pdf)
@@ -81,9 +81,20 @@ class RadarController():
         bit = self.get_bit_img(img)
         image_float = img.astype("float"+str(bit))
         samples = image_float.shape[0]
-        fgain = np.ones(samples)
+        fgain = np.zeros(samples)
         L = np.arange(samples)
-        fgain[t0:] = np.exp(a * (L[t0:] - t0))+g*L[t0:]+a_lin*(L[t0:]-t0)
+
+        #fgain[t0:] = np.exp(a * (L[t0:] - t0))+g*L[t0:]+a_lin*(L[t0:]-t0) #t0 indépendant
+
+        # Gain constant
+        fgain *= g
+
+        # Gain linéaire
+        fgain[t0_lin:] += a_lin*(L[t0_lin:]-t0_lin)
+
+        # Gain exponentiel
+        fgain[t0_exp:] += np.exp(a * (L[t0_exp:] - t0_exp))
+
         image_float = image_float * fgain[:, np.newaxis]
         
         image_float = np.clip(image_float, -(2**bit)+1, (2**bit)-1)
@@ -108,20 +119,9 @@ class RadarController():
         else:
             raise ValueError("Format invalide. Votre tableau numpy est d'un type différent de celui-ci:\n- int\n- float")
 
-"""
-#Path
-path_rd3_high = "/home/cytech/Stage/Mesures/JOUANY1/JOUANY1_0001_1.rd3"
-
-#Test
-test = RadarController(path_rd3_high)
-rd = test.rd
-rd_linear = test.apply_linear_gain(rd, t0 = 0,gain = 1)
-rd_static = test.apply_constant_gain(rd,gain = 10)
-rd_exp = test.apply_exponentiel_gain(rd,50,0.1)
-rd_tot = test.apply_total_gain(rd,0,g = 0, a_lin = 2, a = 0.3)
-# Affichage de la première image
-#plt.imshow(rd_linear,cmap="Greys")
-plt.imshow(rd_exp,cmap="Greys")
-# Affichage de la figure
-plt.show()
-"""
+"""data = RadarData()
+test = RadarController(data)
+rd = data.rd_mat("/home/cytech/JOUANY1/JOUANY1_0001_1.rd3")
+rd = test.apply_total_gain(rd,0,0,7.,4.,0.)
+plt.imshow(rd, cmap="Greys")
+plt.show()"""

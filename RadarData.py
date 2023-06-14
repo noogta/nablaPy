@@ -30,20 +30,21 @@ class RadarData:
                 # rd3 est codé sur 2 octets
                 rd3 = np.frombuffer(byte_data, dtype=np.int16) 
                 # Reshape de rd3
-                rd3 = rd3.reshape(self.get_rad()[0], self.get_rad()[1]) 
+                rd3 = rd3.reshape(self.get_rad(path)[0], self.get_rad(path)[1]) 
                 rd3 = rd3.transpose()
                 #print("Taille du tableau :", rd3.shape)
                 return rd3
             elif(path.endswith(".rd7")):
+                print("je suis ici pour casser les couilles")
                 # Ouvrir le fichier en mode binaire "rb"
                 with open(path, mode='rb') as rd7data:  
                     byte_data = rd7data.read()
                     # rd7 est codé sur 3 octets
                 rd7 = np.frombuffer(byte_data, dtype=np.int32)
                 # Reshape de rd7
-                rd7 = rd7.reshape(self.get_rad()[0], self.get_rad()[1]) 
+                rd7 = rd7.reshape(self.get_rad(path)[0], self.get_rad(path)[1]) 
                 rd7 = rd7.transpose()
-                #print("Taille du tableau :", rd7.shape)
+                print("Taille du tableau :", rd7.shape)
                 return rd7
             
             #README
@@ -56,7 +57,6 @@ class RadarData:
 
         except Exception as e:
             print("Erreur lors de la lecture du fichier.\nVérifier que l'extension de votre fichier soit lisible.\n Pour cela:\n Modifier --> Afficher les extensions\n\n\n\n", str(e))
-            return e
 
     def get_rad(self, path: str):
         """
