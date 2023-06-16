@@ -1,6 +1,7 @@
 import numpy as np
-import matplotlib.pyplot as plt
+
 import os
+
 #Constante Globale Dictionnaire
 cste_global = {
     "c_lum": 299792458, # Vitesse de la lumière dans le vide en m/s
@@ -35,7 +36,6 @@ class RadarData:
                 #print("Taille du tableau :", rd3.shape)
                 return rd3
             elif(path.endswith(".rd7")):
-                print("je suis ici pour casser les couilles")
                 # Ouvrir le fichier en mode binaire "rb"
                 with open(path, mode='rb') as rd7data:  
                     byte_data = rd7data.read()
@@ -44,7 +44,7 @@ class RadarData:
                 # Reshape de rd7
                 rd7 = rd7.reshape(self.get_rad(path)[0], self.get_rad(path)[1]) 
                 rd7 = rd7.transpose()
-                print("Taille du tableau :", rd7.shape)
+                #print("Taille du tableau :", rd7.shape)
                 return rd7
             
             #README

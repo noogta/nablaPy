@@ -5,8 +5,9 @@ from tkinter import filedialog as fd
 from tkinter import ttk
 from PIL import Image, ImageTk
 import mimetypes as mt
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import os
-import matplotlib.pyplot as plt
 
 class MainWindow():
     """Cette classe représente la fenêtre principale."""
@@ -29,10 +30,10 @@ class MainWindow():
         self.window.title(appname)
         self.window
         # Placement de la fenêtre au mileu de l'écran
-        self.posX = (int(self.window.winfo_screenwidth()) // 2 ) - (1200 // 2) # positionnement x sur l'écran
-        self.posY = (int(self.window.winfo_screenheight()) // 2 ) - (800 // 2) # positionnement y sur l'écran
+        self.posX = (int(self.window.winfo_screenwidth()) // 2 ) - (1300 // 2) # positionnement x sur l'écran
+        self.posY = (int(self.window.winfo_screenheight()) // 2 ) - (900 // 2) # positionnement y sur l'écran
         # Geométrie
-        self.window.geometry("{}x{}+{}+{}".format(1200, 800,self.posX,self.posY))
+        self.window.geometry("{}x{}+{}+{}".format(1300, 900,self.posX,self.posY))
         self.window.update()
         # Affichage des différentes parties
 
@@ -56,19 +57,20 @@ class MainWindow():
     def menu(self):
         """Méthode qui crée le menu de notre application"""
         menu_bar = tk.Menu(self.window)
-        self.window.config(menu=menu_bar)
+        self.menu_bar = menu_bar
+        self.window.config(menu=self.menu_bar)
 
         # Création du sous-menu File
         file_menu = tk.Menu(menu_bar, tearoff=False)
-        menu_bar.add_cascade(label="Fichier", menu=file_menu)
+        self.menu_bar.add_cascade(label="Fichier", menu=file_menu)
         file_menu.add_command(label="Ouvrir un dossier", command=self.open_menu_command)
         file_menu.add_command(label="Sauvegarder", command=self.save)
         file_menu.add_command(label="Exporter au format...", command=self.export)
         file_menu.add_command(label="Quitter", command=self.window.quit)
 
         # Création du sous-menu Edit
-        edit_menu = tk.Menu(menu_bar, tearoff=False)
-        menu_bar.add_cascade(label="Modifier", menu=edit_menu)
+        edit_menu = tk.Menu(self.menu_bar, tearoff=False)
+        self.menu_bar.add_cascade(label="Modifier", menu=edit_menu)
         edit_menu.add_command(label="Ajouter une extension", command=self.add_ext)
         edit_menu.add_command(label="Supprimer une extension", command=self.del_ext)
 
@@ -78,8 +80,8 @@ class MainWindow():
         file_menu.add_command(label="Exit", command=self.quit)"""
 
         # Création du sous-menu View
-        view_menu = tk.Menu(menu_bar, tearoff=False)
-        menu_bar.add_cascade(label="Fenêtre", menu=view_menu)
+        view_menu = tk.Menu(self.menu_bar, tearoff=False)
+        self.menu_bar.add_cascade(label="Fenêtre", menu=view_menu)
 
     ### Fichier ###
     def open_menu_command(self):
@@ -185,7 +187,7 @@ class MainWindow():
             try:
                 gain_const_value = float(gain_const_entry.get())
             except ValueError:
-                gain_const_value = 0.0  # Valeur par défaut en cas d'erreur de conversion
+                gain_const_value = 1.0  # Valeur par défaut en cas d'erreur de conversion
             return gain_const_value
 
         gain_const_entry.bind("<Return>", lambda event: self.update_img(event, update_gain_lin_value()[1], update_gain_exp_value()[1], update_gain_const_value(),update_gain_lin_value()[0],update_gain_exp_value()[0]))
@@ -212,7 +214,11 @@ class MainWindow():
         def update_gain_lin_value():
             try:
                 gain_lin_value = float(gain_lin_entry.get())
-                t0_lin_value = int(t0_lin_entry.get())
+                t0_lin_entry_value = t0_lin_entry.get()
+                if isinstance(gain_lin_value, float) and t0_lin_entry_value.isdigit():
+                    t0_lin_value = int(t0_lin_entry_value)
+                else:
+                    t0_lin_value = 0
             except ValueError:
                 gain_lin_value = 0.0  # Valeur par défaut
                 t0_lin_value = 0  # Valeur par défaut
@@ -243,7 +249,11 @@ class MainWindow():
         def update_gain_exp_value():
             try:
                 gain_exp_value = float(gain_exp_entry.get())
-                t0_exp_value = int(t0_exp_entry.get())
+                t0_exp_entry_value = t0_exp_entry.get()
+                if isinstance(gain_exp_value, float) and t0_exp_entry_value.isdigit():
+                    t0_exp_value = int(t0_exp_entry_value)
+                else:
+                    t0_exp_value = 0
             except ValueError:
                 gain_exp_value = 0.0  # Valeur par défaut
                 t0_exp_value = 0  # Valeur par défaut
@@ -300,7 +310,7 @@ class MainWindow():
 
         self.update_sidebar = update_sidebar 
 
-        self.window.bind("<Configure>", lambda event: self.window.after(1, self.update_blocks))
+        self.window.bind("<Configure>", lambda event: self.window.after(0, self.update_blocks))
 
     def filter_list_file(self):
         try:
@@ -379,7 +389,6 @@ class MainWindow():
             selected_file = self.file_listbox.get(selected_index)
             file_path = os.path.join(self.selected_directory, selected_file)
             self.controller = RadarController(self.data)
-            print("Controller crée")
             print("Chemin du Fichier sélectionné :", file_path)
             self.file_path = file_path
     
@@ -398,64 +407,64 @@ class MainWindow():
         radar_label.pack()
 
         # Premier bloc: Matrice
-        self.img_frame = tk.Frame(radargram, bg="green", height=self.radargram_blocks_width()[0])
-        self.img_frame.pack(side="top", fill="both", expand=True)
-
-
-        self.img_canvas = tk.Canvas(self.img_frame)
-        """
-        Dans ce bloc est affiché une image. La fonction qui s'occupe de cela se nomme update_img
-        """
+        self.img_container = tk.Frame(radargram, bg="green", height=self.radargram_blocks_length()[0])
+        self.figure = Figure(figsize=(6, 4), dpi=100)
+        self.axes = self.figure.add_subplot()
+        
+        self.canvas_img = FigureCanvasTkAgg(self.figure, master=self.img_container)
+        self.canvas_img.get_tk_widget().pack(side="top", fill="both", expand=True)
+        # Création de l'étiquette pour afficher les valeurs
+        """values_label = tk.Label(self.canvas_img, textvariable=f"x:0.00 , y: 0.00")
+        values_label.pack(side=tk.TOP, anchor=tk.NE)"""
 
         # Deuxième bloc: Tool
-        impulsion_frame = tk.Frame(radargram, bg="blue", height=self.radargram_blocks_width()[1])
-        impulsion_frame.pack(side="top", fill="both", expand=True)
-
+        impulsion_frame = tk.Frame(radargram, bg="blue", height=self.radargram_blocks_length()[1])
+        impulsion_frame.pack(side="bottom", fill="both")
 
         def update_dim_radargram():
-            self.img_frame.configure(width=self.radargram_blocks_width()[0])
-            impulsion_frame.configure(width=self.radargram_blocks_width()[1])
-            
-            
+            self.img_container.configure(width=self.radargram_blocks_length()[0])
+            impulsion_frame.configure(width=self.radargram_blocks_length()[1])
+
         self.update_dim_radargram = update_dim_radargram
 
-        self.window.bind("<Configure>", lambda event: self.window.after(1, self.update_blocks))
+        self.window.bind("<Configure>", lambda event: self.window.after(0, self.update_blocks))
 
     def update_img(self, event, t0_lin: int, t0_exp: int, g: float, a_lin: float, a: float):
         try:
             path_file = self.file_path
             img = self.data.rd_mat(path_file)
             img = self.controller.apply_total_gain(img, t0_lin, t0_exp, g, a_lin, a)
+
             # Conversion des données en image PIL
             img = Image.fromarray(img)
             self.img_tk = ImageTk.PhotoImage(img)
 
-            self.img_canvas.configure(width=img.width, height=img.height)
-            self.img_canvas.pack()
+            # Effacer le contenu actuel du canvas
 
-            image_label = self.img_canvas.create_image(0, 0, anchor=tk.NW, image=self.img_tk)
+            # Afficher la nouvelle image sur le canvas
+            self.axes.imshow(img, cmap="Greys")
+            self.canvas_img.draw()
 
-            # Mettre à jour la taille du canvas en cas de redimensionnement
-            def update_img(event):
-                self.img_canvas.configure(width=event.width, height=event.height)
-                self.img_canvas.itemconfigure(image_label, image=self.img_tk)
+            # Mettre à jour l'étiquette pour afficher les valeurs
+            #values_label = tk.Label(self.canvas_img, textvariable=f"x:0.00 , y: 0.00")
+            #values_label.pack(side=tk.TOP, anchor=tk.NE)
+            self.img_container.pack(side="top", fill="both", expand = True)
 
-            self.img_frame.bind("<Configure>", update_img)
 
         except Exception as e:
-            #print("Aucune image n'a encore été définie.", str(e))
             print(e)
 
+    
 
 
-    def radargram_blocks_width(self):
-        """Méthode appelé par radargram, elle permet de récupérer la longueur souhaité pour les deux sous fenêtres."""
-        window_height= self.window.winfo_height()
+    def radargram_blocks_length(self):
+        """Méthode appelé par radargram, elle permet de récupérer la hauteur souhaitée pour les deux sous fenêtres."""
+        window_height= self.window.winfo_height()-self.menu_bar.winfo_height()
         #print("Largeur de la fenêtre :", window_width)
         radargram_height = int(window_height)
-        mat_height = int((85 / 100) * radargram_height)
-        tool_height= int((15 / 100) * radargram_height)
-        return mat_height, tool_height
+        img_container_height = int((85 / 100) * radargram_height)
+        tool_height = int((15 / 100) * radargram_height)
+        return img_container_height, tool_height,
     
     def update_blocks(self):
         self.update_sidebar()

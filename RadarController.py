@@ -1,6 +1,5 @@
 from RadarData import RadarData
 import numpy as np
-import matplotlib.pyplot as plt
 
 import re
 class RadarController():
@@ -81,7 +80,7 @@ class RadarController():
         bit = self.get_bit_img(img)
         image_float = img.astype("float"+str(bit))
         samples = image_float.shape[0]
-        fgain = np.zeros(samples)
+        fgain = np.ones(samples)
         L = np.arange(samples)
 
         #fgain[t0:] = np.exp(a * (L[t0:] - t0))+g*L[t0:]+a_lin*(L[t0:]-t0) #t0 indépendant
@@ -93,7 +92,7 @@ class RadarController():
         fgain[t0_lin:] += a_lin*(L[t0_lin:]-t0_lin)
 
         # Gain exponentiel
-        fgain[t0_exp:] += np.exp(a * (L[t0_exp:] - t0_exp))
+        fgain[t0_exp:] +=  np.exp(a * (L[t0_exp:] - t0_exp))
 
         image_float = image_float * fgain[:, np.newaxis]
         
