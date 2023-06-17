@@ -1,5 +1,5 @@
 import numpy as np
-
+import matplotlib.pyplot as plt
 import os
 
 #Constante Globale Dictionnaire
@@ -108,3 +108,11 @@ class RadarData:
                     file.write(list_ext[i]+"\n")
         else:
             print(f"{ext_del} n'est pas présent dans le fichier.")
+"""
+path = "/home/cytech/JOUANY1/JOUANY1_0001_1.rd3"
+test = RadarData()
+rd = test.rd_mat(path)
+print(rd)
+plt.imshow(rd, cmap="Greys")
+plt.show()
+"""

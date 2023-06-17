@@ -1,6 +1,6 @@
 from RadarData import RadarData
 import numpy as np
-
+import matplotlib.pyplot as plt
 import re
 class RadarController():
     def __init__(self, data: RadarData):
@@ -117,10 +117,3 @@ class RadarController():
             return int(format[3:])
         else:
             raise ValueError("Format invalide. Votre tableau numpy est d'un type différent de celui-ci:\n- int\n- float")
-
-"""data = RadarData()
-test = RadarController(data)
-rd = data.rd_mat("/home/cytech/JOUANY1/JOUANY1_0001_1.rd3")
-rd = test.apply_total_gain(rd,0,0,7.,4.,0.)
-plt.imshow(rd, cmap="Greys")
-plt.show()"""

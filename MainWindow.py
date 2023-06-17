@@ -5,10 +5,11 @@ from tkinter import filedialog as fd
 from tkinter import ttk
 from PIL import Image, ImageTk
 import mimetypes as mt
+import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import os
-
+import numpy as np
 class MainWindow():
     """Cette classe représente la fenêtre principale."""
     def __init__(self, appname: str):
@@ -45,7 +46,6 @@ class MainWindow():
         # Barre de contrôle
         # État initial du filtre
         self.filter_state = "high"
-        self.disable_state = "off"
         self.sidebar(self.window_frame)
 
         # Radargramme
@@ -106,7 +106,11 @@ class MainWindow():
         self.file_list = os.listdir(directory)
         self.file_list.sort()
         self.file_listbox.delete(0, tk.END)
-        self.filter_list_file()
+        for file in self.file_list:
+            file_path = os.path.join(self.selected_directory, file)
+            if mt.guess_type(file_path)[0] == 'application/octet-stream':
+                self.file_listbox.insert(tk.END, file)
+        #self.filter_list_file()
 
 
     def save(self):
@@ -150,16 +154,18 @@ class MainWindow():
         filter_button = tk.Button(file_frame, textvariable=self.filter_button_text, command=self.filter_list_file)
         filter_button.pack(fill="both")
 
-        self.disable_button_text = tk.StringVar(value="Désactiver le filtrage de fréquence")
-        disable_button = tk.Button(file_frame, textvariable=self.disable_button_text, font=("Arial", 8, "bold"), command=self.disable_filter)
-        disable_button.pack(fill="both")
+        self.mult_button_text = tk.StringVar(value="Format")
+        disable_mult_button = tk.Button(file_frame, textvariable=self.mult_button_text, font=("Arial", 8, "bold"), command=self.filter_mult)
+        disable_mult_button.pack(fill="both")
+        
+        # Deuxième bloc: Affichage
 
-        # Deuxième bloc: Outils
-        second_block = tk.Frame(sidebar)
-        second_block.pack(side="left", fill="both", expand=True)
+        # Troisième bloc: Outils
+        third_block = tk.Frame(sidebar)
+        third_block.pack(side="left", fill="both", expand=True)
 
         # Widget Notebook
-        notebook = ttk.Notebook(second_block)
+        notebook = ttk.Notebook(third_block)
         notebook.pack(fill="both", expand=True)
 
         # Premier onglet: Gains/Filtres
@@ -188,6 +194,7 @@ class MainWindow():
                 gain_const_value = float(gain_const_entry.get())
             except ValueError:
                 gain_const_value = 1.0  # Valeur par défaut en cas d'erreur de conversion
+                print("la valeur est bien 1.0")
             return gain_const_value
 
         gain_const_entry.bind("<Return>", lambda event: self.update_img(event, update_gain_lin_value()[1], update_gain_exp_value()[1], update_gain_const_value(),update_gain_lin_value()[0],update_gain_exp_value()[0]))
@@ -312,76 +319,59 @@ class MainWindow():
 
         self.window.bind("<Configure>", lambda event: self.window.after(0, self.update_blocks))
 
-    def filter_list_file(self):
+    def filter_list_file(self, ):
         try:
             self.file_listbox.delete(0, tk.END)
             if self.filter_state == "high":
                 self.filter_state = "low"
                 self.filter_button_text.set("Basse Fréquence")
                 for file in self.file_list:
-                    if(file.find("_1") != -1):
-                        file_path = os.path.join(self.selected_directory, file)
-                        if mt.guess_type(file_path)[0] == 'application/octet-stream':
-                            self.file_listbox.insert(tk.END, file)
-            else:
-                self.filter_state = "high"
-                self.filter_button_text.set("Haute Fréquence")
-                for file in self.file_list:
                     if(file.find("_2") != -1):
                         file_path = os.path.join(self.selected_directory, file)
                         if mt.guess_type(file_path)[0] == 'application/octet-stream':
                             self.file_listbox.insert(tk.END, file)
-        except Exception as e:
-            # Inutile mais faut bien écrire quelque chose
-            del(e)
-
-    def disable_filter(self):
-        try:
-            self.file_listbox.delete(0, tk.END)
-            if(self.disable_state == "off"):
-                self.disable_state = "on"
-                self.disable_button_text.set("Désactiver le filtrage de fréquence")
-                if(self.filter_button_text == "Haute Fréquence"):
+            else:
+                if(self.filter_state == "low"):
+                    self.filter_state = "shut"
+                    self.filter_button_text.set("Filtrage désactiver")
+                    for file in self.file_list:
+                        file_path = os.path.join(self.selected_directory, file)
+                        if mt.guess_type(file_path)[0] == 'application/octet-stream':
+                                self.file_listbox.insert(tk.END, file)
+                else:
+                    self.filter_state = "high"
+                    self.filter_button_text.set("Haute Fréquence")
                     for file in self.file_list:
                         if(file.find("_1") != -1):
                             file_path = os.path.join(self.selected_directory, file)
                             if mt.guess_type(file_path)[0] == 'application/octet-stream':
                                 self.file_listbox.insert(tk.END, file)
-                else:
-                    for file in self.file_list:
-                        if(file.find("_2") != -1):
-                            file_path = os.path.join(self.selected_directory, file)
-                            if mt.guess_type(file_path)[0] == 'application/octet-stream':
-                                self.file_listbox.insert(tk.END, file)
-
-            else:
-                self.disable_state = "off"
-                self.disable_button_text.set("Activer le filtrage de fréquence")
-                for file in self.file_list:
-                    file_path = os.path.join(self.selected_directory, file)
-                    if mt.guess_type(file_path)[0] == 'application/octet-stream':
-                        self.file_listbox.insert(tk.END, file)
         except Exception as e:
             # Inutile mais faut bien écrire quelque chose
             del(e)
-    """
-    def disable_mul(self):
-        try:
-            L = []
-            for file in self.file_list:
-                if(file.endswith)
-            else:
-                self.filter_state = "high"
-                self.filter_button_text.set("Haute Fréquence")
-                for file in self.file_list:
-                    if(file.find("_2") != -1):
-                        file_path = os.path.join(self.selected_directory, file)
-                        if mt.guess_type(file_path)[0] == 'application/octet-stream':
-                            self.file_listbox.insert(tk.END, file)
 
+    def filter_mult(self):
+        try:
+            return 0
         except Exception as e:
             del(e)
-    """
+
+    def mult_file_list(self):
+        try:
+            # Liste des extensions
+            list_ext = []
+
+            #Vérification de la présence de plusieurs formats
+            for file in self.file_list:
+                i = 1
+                while(file[-i] != "."):
+                    i+=1
+                ext = file[len(file)-i:]
+                if(ext not in list_ext):
+                    list_ext.append(ext)
+            return list_ext
+        except Exception as e:
+            del(e)
 
     def select_file(self, event):
         selected_index = self.file_listbox.curselection()
@@ -391,6 +381,7 @@ class MainWindow():
             self.controller = RadarController(self.data)
             print("Chemin du Fichier sélectionné :", file_path)
             self.file_path = file_path
+        self.update_img(event,0,0,1.0,0.0,0.0)
     
     def sidebar_width(self):
         """Méthode appelé par sidebar, elle permet de récupérer la longueur de la fenêtre pour prendre le poucentage souhaité."""
@@ -407,8 +398,8 @@ class MainWindow():
         radar_label.pack()
 
         # Premier bloc: Matrice
-        self.img_container = tk.Frame(radargram, bg="green", height=self.radargram_blocks_length()[0])
-        self.figure = Figure(figsize=(6, 4), dpi=100)
+        self.img_container = tk.Frame(radargram, bg="green")
+        self.figure = Figure(figsize=(6, 4))
         self.axes = self.figure.add_subplot()
         
         self.canvas_img = FigureCanvasTkAgg(self.figure, master=self.img_container)
@@ -416,16 +407,6 @@ class MainWindow():
         # Création de l'étiquette pour afficher les valeurs
         """values_label = tk.Label(self.canvas_img, textvariable=f"x:0.00 , y: 0.00")
         values_label.pack(side=tk.TOP, anchor=tk.NE)"""
-
-        # Deuxième bloc: Tool
-        impulsion_frame = tk.Frame(radargram, bg="blue", height=self.radargram_blocks_length()[1])
-        impulsion_frame.pack(side="bottom", fill="both")
-
-        def update_dim_radargram():
-            self.img_container.configure(width=self.radargram_blocks_length()[0])
-            impulsion_frame.configure(width=self.radargram_blocks_length()[1])
-
-        self.update_dim_radargram = update_dim_radargram
 
         self.window.bind("<Configure>", lambda event: self.window.after(0, self.update_blocks))
 
@@ -435,14 +416,8 @@ class MainWindow():
             img = self.data.rd_mat(path_file)
             img = self.controller.apply_total_gain(img, t0_lin, t0_exp, g, a_lin, a)
 
-            # Conversion des données en image PIL
-            img = Image.fromarray(img)
-            self.img_tk = ImageTk.PhotoImage(img)
-
-            # Effacer le contenu actuel du canvas
-
             # Afficher la nouvelle image sur le canvas
-            self.axes.imshow(img, cmap="Greys")
+            self.axes.imshow(img, cmap="Greys", interpolation="nearest", aspect = "auto")
             self.canvas_img.draw()
 
             # Mettre à jour l'étiquette pour afficher les valeurs
@@ -453,22 +428,9 @@ class MainWindow():
 
         except Exception as e:
             print(e)
-
-    
-
-
-    def radargram_blocks_length(self):
-        """Méthode appelé par radargram, elle permet de récupérer la hauteur souhaitée pour les deux sous fenêtres."""
-        window_height= self.window.winfo_height()-self.menu_bar.winfo_height()
-        #print("Largeur de la fenêtre :", window_width)
-        radargram_height = int(window_height)
-        img_container_height = int((85 / 100) * radargram_height)
-        tool_height = int((15 / 100) * radargram_height)
-        return img_container_height, tool_height,
     
     def update_blocks(self):
         self.update_sidebar()
-        self.update_dim_radargram()
 
     def width_pad(self):
         """Méthode appelé par sidebar, elle permet de récupérer la hauteur de la fenêtre pour prendre le poucentage souhaité afin d'avoir un padx dynamique."""
