@@ -153,16 +153,12 @@ class MainWindow():
                         self.file_listbox.insert(tk.END, file)
 
     def save(self):
-        if np.array_equal(self.img, np.zeros((5, 5))):
+        if(self.file_path == ""):
             print("Aucune image n'a encore été définie")
         else:
-            plt.imshow(self.img, cmap="Greys")
-            plt.axis('on')  # Afficher les axes
-
             # Sauvegarder l'image en format JPEG
             file_path = fd.asksaveasfilename(defaultextension=".jpg", filetypes=[("JPEG files", "*.jpg")])
             plt.imsave(file_path, self.img, cmap="Greys")
-        return 1
 
 
     def save_all(self):
@@ -179,7 +175,6 @@ class MainWindow():
                     i+=1
                     # Sauvegarder l'image en format JPEG
                 plt.imsave(folder_path + "/" + file[:-i] + ".jpg", img, cmap="Greys")
-        return 0
 
     def sidebar(self, parent):
         sidebar = tk.Frame(parent, width=self.sidebar_width(), bg="black")
