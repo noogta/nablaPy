@@ -3,13 +3,15 @@ from RadarData import RadarData
 from RadarController import RadarController
 from tkinter import filedialog as fd
 from tkinter import ttk
-from PIL import Image, ImageTk
+from PIL import Image, ImageTk, ImageGrab, ImageDraw
 import mimetypes as mt
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import os
 import numpy as np
+import io
+
 class MainWindow():
     """Cette classe représente la fenêtre principale."""
     def __init__(self, appname: str):
@@ -39,13 +41,25 @@ class MainWindow():
         # Affichage des différentes parties
 
         # Menu
+        self.img = 0
+        self.file_list_sort = list[str]
         self.menu()
+
         # Frame principale
         self.window_frame = tk.Frame(self.window, bg="white smoke")
         self.window_frame.pack(fill="both", expand=True)
+
         # Barre de contrôle
+
         # État initial du filtre
-        self.filter_state = "high"
+        self.list_ext = ["Format", ".rd3", ".rd7", ".DZT"]
+        self.freq_state = "high"
+        self.gain_const_value = 1.
+        self.gain_lin_value = 0.
+        self.t0_lin_value = 0.
+        self.gain_exp_value = 0.
+        self.t0_exp_value = 0.
+
         self.sidebar(self.window_frame)
 
         # Radargramme
@@ -65,7 +79,7 @@ class MainWindow():
         self.menu_bar.add_cascade(label="Fichier", menu=file_menu)
         file_menu.add_command(label="Ouvrir un dossier", command=self.open_menu_command)
         file_menu.add_command(label="Sauvegarder", command=self.save)
-        file_menu.add_command(label="Exporter au format...", command=self.export)
+        file_menu.add_command(label="Sauvegarder les fichiers", command=self.save_all)
         file_menu.add_command(label="Quitter", command=self.window.quit)
 
         # Création du sous-menu Edit
@@ -87,7 +101,7 @@ class MainWindow():
     def open_menu_command(self):
         self.selected_directory = fd.askdirectory()
         print("Dossier sélectionné :", self.selected_directory)
-        self.update_file_list(self.selected_directory)
+        self.update_file_list()
 
     ### Modifier ###
     def add_ext(self):
@@ -101,25 +115,70 @@ class MainWindow():
         window_add.title("Supprimer une extension")
         window_add.geometry("{}x{}+{}+{}".format(400, 400,self.posX + (self.window.winfo_width()-400) // 2 ,self.posY+30))
 
-    def update_file_list(self, directory: str):
-        self.set_list_of_extension()
-        self.file_list = os.listdir(directory)
-        self.file_list.sort()
-        self.file_listbox.delete(0, tk.END)
-        for file in self.file_list:
-            file_path = os.path.join(self.selected_directory, file)
-            if mt.guess_type(file_path)[0] == 'application/octet-stream':
-                self.file_listbox.insert(tk.END, file)
-        #self.filter_list_file()
+    def update_file_list(self):
+        """
+    Méthode qui met à jour la liste des fichiers du logiciel.
+        """
+        # Création de la variable de type list str, self.file_list
+        self.file_list = os.listdir(self.selected_directory)
 
+        # Trie de la liste
+        self.file_list.sort()
+
+        # Suppresion --> Actualisation de la listbox
+        self.file_listbox.delete(0, tk.END)
+
+        # États/Formats pour le filtrage par fréquence
+        state_freq_list = ["high", "low", "shut"]
+        format_freq_list = ["_1","_2",""]
+        index_freq = state_freq_list.index(self.freq_state)
+
+        # États pour le filtrage par format
+        state_format_list = self.list_ext
+        index_format = state_format_list.index(self.mult_button_text.get())
+
+        # Filtrage selon les différents critères
+        for file in self.file_list:
+            if((file.endswith(state_format_list[index_format])) and (file.find(format_freq_list[index_freq]) != -1 or state_freq_list[index_freq] == "shut" )):
+                self.file_listbox.insert(tk.END, file)
+                #self.file_list_sort.append(file)
+            else:
+                if state_format_list[index_format] == "Format":
+                    if((file.find(format_freq_list[index_freq] or state_freq_list[index_freq] == "shut" ) != -1)):
+                        self.file_listbox.insert(tk.END, file)
+                        #self.file_list_sort.append(file)
+
+                else:
+                    if(file.endswith(state_format_list[index_format])) and (file.find(format_freq_list[index_freq]) != -1 or state_freq_list[index_freq] == "shut" ):
+                        self.file_listbox.insert(tk.END, file)
 
     def save(self):
-        "En construction"
-        return 0
-    
+        if np.array_equal(self.img, np.zeros((5, 5))):
+            print("Aucune image n'a encore été définie")
+        else:
+            plt.imshow(self.img, cmap="Greys")
+            plt.axis('on')  # Afficher les axes
 
-    def export(self):
-        "En construction"
+            # Sauvegarder l'image en format JPEG
+            file_path = fd.asksaveasfilename(defaultextension=".jpg", filetypes=[("JPEG files", "*.jpg")])
+            plt.imsave(file_path, self.img, cmap="Greys")
+        return 1
+
+
+    def save_all(self):
+        files = []
+        if(self.file_list_sort != []):
+            folder_path = fd.askdirectory()
+            for file in self.file_listbox.get(0, tk.END):
+                path_file = os.path.join(self.selected_directory, file)
+                img = self.data.rd_mat(path_file)
+                img = self.controller.apply_total_gain(img, self.t0_lin_value, self.t0_exp_value, self.gain_const_value, self.gain_lin_value, self.gain_exp_value)
+
+                i = 1
+                while(file[-i] != "."):
+                    i+=1
+                    # Sauvegarder l'image en format JPEG
+                plt.imsave(folder_path + "/" + file[:-i] + ".jpg", img, cmap="Greys")
         return 0
 
     def sidebar(self, parent):
@@ -191,11 +250,10 @@ class MainWindow():
 
         def update_gain_const_value():
             try:
-                gain_const_value = float(gain_const_entry.get())
+                self.gain_const_value = float(gain_const_entry.get())
             except ValueError:
-                gain_const_value = 1.0  # Valeur par défaut en cas d'erreur de conversion
-                print("la valeur est bien 1.0")
-            return gain_const_value
+                self.gain_const_value = 1.0  # Valeur par défaut en cas d'erreur de conversion
+            return self.gain_const_value
 
         gain_const_entry.bind("<Return>", lambda event: self.update_img(event, update_gain_lin_value()[1], update_gain_exp_value()[1], update_gain_const_value(),update_gain_lin_value()[0],update_gain_exp_value()[0]))
         
@@ -220,16 +278,16 @@ class MainWindow():
 
         def update_gain_lin_value():
             try:
-                gain_lin_value = float(gain_lin_entry.get())
+                self.gain_lin_value = float(gain_lin_entry.get())
                 t0_lin_entry_value = t0_lin_entry.get()
-                if isinstance(gain_lin_value, float) and t0_lin_entry_value.isdigit():
-                    t0_lin_value = int(t0_lin_entry_value)
+                if isinstance(self.gain_lin_value, float) and t0_lin_entry_value.isdigit():
+                    self.t0_lin_value = int(t0_lin_entry_value)
                 else:
-                    t0_lin_value = 0
+                    self.t0_lin_value = 0
             except ValueError:
-                gain_lin_value = 0.0  # Valeur par défaut
-                t0_lin_value = 0  # Valeur par défaut
-            return gain_lin_value, t0_lin_value
+                self.gain_lin_value = 0.0  # Valeur par défaut
+                self.t0_lin_value = 0  # Valeur par défaut
+            return self.gain_lin_value, self.t0_lin_value
 
         gain_lin_entry.bind("<Return>", lambda event: self.update_img(event, update_gain_lin_value()[1], update_gain_exp_value()[1], update_gain_const_value(),update_gain_lin_value()[0],update_gain_exp_value()[0]))
         t0_lin_entry.bind("<Return>", lambda event: self.update_img(event, update_gain_lin_value()[1], update_gain_exp_value()[1], update_gain_const_value(),update_gain_lin_value()[0],update_gain_exp_value()[0]))
@@ -255,16 +313,16 @@ class MainWindow():
 
         def update_gain_exp_value():
             try:
-                gain_exp_value = float(gain_exp_entry.get())
+                self.gain_exp_value = float(gain_exp_entry.get())
                 t0_exp_entry_value = t0_exp_entry.get()
-                if isinstance(gain_exp_value, float) and t0_exp_entry_value.isdigit():
-                    t0_exp_value = int(t0_exp_entry_value)
+                if isinstance(self.gain_exp_value, float) and t0_exp_entry_value.isdigit():
+                    self.t0_exp_value = int(t0_exp_entry_value)
                 else:
-                    t0_exp_value = 0
+                    self.t0_exp_value = 0
             except ValueError:
-                gain_exp_value = 0.0  # Valeur par défaut
-                t0_exp_value = 0  # Valeur par défaut
-            return gain_exp_value, t0_exp_value
+                self.gain_exp_value = 0.0  # Valeur par défaut
+                self.t0_exp_value = 0  # Valeur par défaut
+            return self.gain_exp_value, self.t0_exp_value
         
         gain_exp_entry.bind("<Return>", lambda event: self.update_img(event, update_gain_lin_value()[1], update_gain_exp_value()[1], update_gain_const_value(),update_gain_lin_value()[0],update_gain_exp_value()[0]))
         t0_exp_entry.bind("<Return>", lambda event: self.update_img(event, update_gain_lin_value()[1], update_gain_exp_value()[1], update_gain_const_value(),update_gain_lin_value()[0],update_gain_exp_value()[0]))
@@ -321,47 +379,43 @@ class MainWindow():
 
     def filter_list_file(self, ):
         try:
-            self.file_listbox.delete(0, tk.END)
-            if self.filter_state == "high":
-                self.filter_state = "low"
-                self.filter_button_text.set("Basse Fréquence")
-                for file in self.file_list:
-                    if(file.find("_2") != -1):
-                        file_path = os.path.join(self.selected_directory, file)
-                        if mt.guess_type(file_path)[0] == 'application/octet-stream':
-                            self.file_listbox.insert(tk.END, file)
+            state_freq_list = ["high", "low", "shut"]
+            name_freq_list = ["Haute Fréquence", "Basse Fréquence", "Filtrage désactiver"]
+            index = name_freq_list.index(self.filter_button_text.get()) + 1
+            if(index+1 <= len(name_freq_list)):
+                self.filter_button_text.set(name_freq_list[index])
+                self.freq_state = state_freq_list[index]
+                self.update_file_list()
             else:
-                if(self.filter_state == "low"):
-                    self.filter_state = "shut"
-                    self.filter_button_text.set("Filtrage désactiver")
-                    for file in self.file_list:
-                        file_path = os.path.join(self.selected_directory, file)
-                        if mt.guess_type(file_path)[0] == 'application/octet-stream':
-                                self.file_listbox.insert(tk.END, file)
-                else:
-                    self.filter_state = "high"
-                    self.filter_button_text.set("Haute Fréquence")
-                    for file in self.file_list:
-                        if(file.find("_1") != -1):
-                            file_path = os.path.join(self.selected_directory, file)
-                            if mt.guess_type(file_path)[0] == 'application/octet-stream':
-                                self.file_listbox.insert(tk.END, file)
+                index = 0
+                self.filter_button_text.set(name_freq_list[index])
+                self.freq_state = state_freq_list[index]
+                self.update_file_list()
         except Exception as e:
             # Inutile mais faut bien écrire quelque chose
             del(e)
 
     def filter_mult(self):
         try:
-            return 0
+            index = self.list_ext.index(self.mult_button_text.get()) + 1
+            if(index+1 <= len(self.list_ext)):
+                self.mult_button_text.set(self.list_ext[index])
+                self.update_file_list()
+            else:
+                index = 0
+                self.mult_button_text.set(self.list_ext[index])
+                self.update_file_list()
         except Exception as e:
             del(e)
 
+    """
     def mult_file_list(self):
         try:
             # Liste des extensions
             list_ext = []
 
             #Vérification de la présence de plusieurs formats
+            list_ext.append("Format")
             for file in self.file_list:
                 i = 1
                 while(file[-i] != "."):
@@ -369,9 +423,10 @@ class MainWindow():
                 ext = file[len(file)-i:]
                 if(ext not in list_ext):
                     list_ext.append(ext)
-            return list_ext
+            self.list_ext = list_ext
         except Exception as e:
             del(e)
+    """
 
     def select_file(self, event):
         selected_index = self.file_listbox.curselection()
@@ -415,7 +470,7 @@ class MainWindow():
             path_file = self.file_path
             img = self.data.rd_mat(path_file)
             img = self.controller.apply_total_gain(img, t0_lin, t0_exp, g, a_lin, a)
-
+            self.img = img
             # Afficher la nouvelle image sur le canvas
             self.axes.imshow(img, cmap="Greys", interpolation="nearest", aspect = "auto")
             self.canvas_img.draw()
@@ -444,11 +499,6 @@ class MainWindow():
         window_height = self.window.winfo_height()
         #print("Hauteur de la fenêtre :", window_height)
         sidebar_height = int((1 / 100)* window_height)
-        return sidebar_height
-    
-    def set_list_of_extension(self):
-        List_of_extension = self.data.get_list_extension()
-        for i in range(len(List_of_extension)):
-            mt.add_type('application/octet-stream', List_of_extension[i])
+        return sidebar_height 
     
     #filtre trace moyenne

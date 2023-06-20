@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import os
-
+import xml.etree.ElementTree as ET
 #Constante Globale Dictionnaire
 cste_global = {
     "c_lum": 299792458, # Vitesse de la lumière dans le vide en m/s
@@ -35,6 +35,7 @@ class RadarData:
                 rd3 = rd3.transpose()
                 #print("Taille du tableau :", rd3.shape)
                 return rd3
+            
             elif(path.endswith(".rd7")):
                 # Ouvrir le fichier en mode binaire "rb"
                 with open(path, mode='rb') as rd7data:  
@@ -46,6 +47,18 @@ class RadarData:
                 rd7 = rd7.transpose()
                 #print("Taille du tableau :", rd7.shape)
                 return rd7
+    
+            elif(path.endswith(".DZT")):
+                # Ouvrir le fichier en mode binaire "rb"
+                with open(path, mode='rb') as DZTdata:  
+                    byte_data = DZTdata.read()
+                    # DZT est codé sur 3 octets
+                DZT= np.frombuffer(byte_data, dtype=np.int32)
+                # Reshape de rd7
+                DZT = DZT.reshape(self.get_dzx(path)[0], self.get_dzx(path)[1]) 
+                DZT = DZT.transpose()
+                #print("Taille du tableau :", DZT.shape)
+                return DZT
             
             #README
             # Si vous souhaitez rajouter d'autres format:
@@ -85,18 +98,45 @@ class RadarData:
                 break 
         return value_trace, value_sample
     
+    def get_dzx(self, path: str):
+        dzx_file_path = path[:-3]+"DZX"
+
+        # Chargement du fichier XML
+        tree = ET.parse(dzx_file_path)
+        root = tree.getroot()
+
+        elements_list = []
+        i = 0
+        for element in root.iter():
+            if(element.tag.find("unitsPerScan")):
+                print(element.text)
+            elif(element.tag.find("gridId")):
+                print(element.text)
+
     def add_list_extension(self, ext: str):
         path = os.path.dirname(__file__)
         with open(path+"/data/ext.txt", 'a') as file:
             file.write("\n"+ext)
 
+    """
     def get_list_extension(self):
         path = os.path.dirname(__file__)
         with open(path+"/data/ext.txt", 'r') as file:
             f = (file.read())
         elements = f.split("\n")
         return elements
+    """
 
+    def get_list_extension(self):
+        """
+    Méthode qui initialise les extensions traitables par le logiciel.
+
+    Return:
+        Retourne le tableau L contenant les extensions/
+        """
+        L = [".rd3", ".rd7", ".DZT"]
+        return L
+    
     def delete_list_extension(self, ext_del: str):
         path = os.path.dirname(__file__)
         list_ext = self.get_list_extension()
@@ -108,11 +148,11 @@ class RadarData:
                     file.write(list_ext[i]+"\n")
         else:
             print(f"{ext_del} n'est pas présent dans le fichier.")
+
 """
-path = "/home/cytech/JOUANY1/JOUANY1_0001_1.rd3"
-test = RadarData()
-rd = test.rd_mat(path)
-print(rd)
-plt.imshow(rd, cmap="Greys")
-plt.show()
+path = "/home/cytech/Mesure/PROJECT6/FILE__005.DZT"
+data = RadarData()
+liste = data.get_dzx(path)
+for i in range(len(liste)):
+    print(f"{i}: {liste[i]}")
 """
