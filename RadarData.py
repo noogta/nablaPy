@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 import xml.etree.ElementTree as ET
+import sys
 #Constante Globale Dictionnaire
 cste_global = {
     "c_lum": 299792458, # Vitesse de la lumière dans le vide en m/s
@@ -40,7 +41,7 @@ class RadarData:
                 # Ouvrir le fichier en mode binaire "rb"
                 with open(path, mode='rb') as rd7data:  
                     byte_data = rd7data.read()
-                    # rd7 est codé sur 3 octets
+                    # rd7 est codé (doute à vérifier)
                 rd7 = np.frombuffer(byte_data, dtype=np.int32)
                 # Reshape de rd7
                 rd7 = rd7.reshape(self.get_rad(path)[0], self.get_rad(path)[1]) 
@@ -69,15 +70,27 @@ class RadarData:
             # -5 Transposez le tableau
 
         except Exception as e:
-            print("Erreur lors de la lecture du fichier.\nVérifier que l'extension de votre fichier soit lisible.\n Pour cela:\n Modifier --> Afficher les extensions\n\n\n\n", str(e))
+            print("Erreur :", e)
+            print("Ligne :", sys.exc_info()[2].tb_lineno)
+            #print("Erreur lors de la lecture du fichier.\nVérifier que l'extension de votre fichier soit lisible.\n Pour cela:\n Modifier --> Afficher les extensions\n\n\n\n", str(e))
 
     def get_rad(self, path: str):
         """
     Méthode permettant de récupérer les données contenues dans le fichier .rad.
 
     Return:
-        Retourne le tableau numpy contenant les données de la zone sondée.
+        Retourne les informations suivantes (dans cet ordre):\n
+            - value_trace (int) : nombre de mesures\n
+            - value_samples (int): nombre d'échantillons\n
+            - value_distance_total (float): distance totale\n
+            - value_step (float): distance par mesure (horizontal (sol))\n
+            - value_time (float): Temps d'aller\n
         """
+        value_trace = None
+        value_sample = None
+        value_dist_total = None
+        value_step = None
+        value_time = None
         rad_file_path = path[:-2]+"ad"
 
         # Lecture du fichier .rad
@@ -86,17 +99,24 @@ class RadarData:
 
         # Traitement des lignes du fichier
         for line in lines:
-            line = line.strip()
             # Supprimer les espaces en début et fin de ligne
+            line = line.strip()
             if "SAMPLES" in line:
                 value = line.split(':')[1]
                 value_sample = int(value)
             elif "LAST TRACE" in line:
                 value = line.split(':')[1]
                 value_trace = int(value)
-                # Arrêt la boucle car nous avons trouvé les deux variables souhaités
-                break 
-        return value_trace, value_sample
+            elif "DISTANCE INTERVAL" in line:
+                value = line.split(':')[1]
+                value_step = float(value)
+            elif "TIMEWINDOW" in line:
+                value = line.split(':')[1]
+                value_time = float(value)
+            elif "STOP POSITION" in line:
+                value = line.split(':')[1]
+                value_dist_total = float(value)            
+        return value_trace, value_sample, value_dist_total, value_step, value_time
     
     def get_dzx(self, path: str):
         dzx_file_path = path[:-3]+"DZX"
@@ -148,11 +168,3 @@ class RadarData:
                     file.write(list_ext[i]+"\n")
         else:
             print(f"{ext_del} n'est pas présent dans le fichier.")
-
-"""
-path = "/home/cytech/Mesure/PROJECT6/FILE__005.DZT"
-data = RadarData()
-liste = data.get_dzx(path)
-for i in range(len(liste)):
-    print(f"{i}: {liste[i]}")
-"""

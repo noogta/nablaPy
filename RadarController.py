@@ -82,7 +82,7 @@ class RadarController():
         samples = image_float.shape[0]
         fgain = np.ones(samples)
         L = np.arange(samples)
-
+        
         #fgain[t0:] = np.exp(a * (L[t0:] - t0))+g*L[t0:]+a_lin*(L[t0:]-t0) #t0 indépendant
 
         # Gain constant
