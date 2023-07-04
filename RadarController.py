@@ -1,10 +1,10 @@
 from RadarData import RadarData
 import numpy as np
-import matplotlib.pyplot as plt
-import re
+import traceback
+
 class RadarController():
-    def __init__(self, data: RadarData):
-        self.data = data
+    def __init__(self):
+        return
 
     def apply_constant_gain(self, img:np.ndarray, gain: float):
         """
@@ -77,26 +77,29 @@ class RadarController():
             ndarray : Retourne le tableau traité.
         """
                 # Conversion de l'image en flottant pour effectuer les calculs
-        bit = self.get_bit_img(img)
-        image_float = img.astype("float"+str(bit))
+        bits = self.get_bit_img(img)
+        image_float = img.astype("float"+str(bits))
         samples = image_float.shape[0]
-        fgain = np.ones(samples)
+        fgain = None
+        if(bits == 16):
+            fgain = np.ones(samples, dtype=np.float16)
+        else:
+            if(bits == 32):
+                fgain = np.ones(samples, dtype=np.float32)
         L = np.arange(samples)
         
         #fgain[t0:] = np.exp(a * (L[t0:] - t0))+g*L[t0:]+a_lin*(L[t0:]-t0) #t0 indépendant
 
         # Gain constant
         fgain *= g
-
         # Gain linéaire
         fgain[t0_lin:] += a_lin*(L[t0_lin:]-t0_lin)
 
         # Gain exponentiel
         fgain[t0_exp:] +=  np.exp(a * (L[t0_exp:] - t0_exp))
-
         image_float = image_float * fgain[:, np.newaxis]
         
-        image_float = np.clip(image_float, -(2**bit)+1, (2**bit)-1)
+        image_float = np.clip(image_float, -(2**bits)+1, (2**bits)-1, dtype=image_float.dtype)
         return image_float
     
     
@@ -117,3 +120,25 @@ class RadarController():
             return int(format[3:])
         else:
             raise ValueError("Format invalide. Votre tableau numpy est d'un type différent de celui-ci:\n- int\n- float")
+        
+    def dewow_filter(self, array: np.ndarray):
+        """
+        Applique le filtre dewow à un tableau de données.
+
+        Arguments:
+            - data: Le tableau de données d'entrée.
+            - window_size: La taille de la fenêtre de filtrage (par défaut: 5).
+
+        Retourne:
+            - Le tableau de données filtré.
+        """
+        try:
+            # Calculer la moyenne par colonne
+            col_mean = np.mean(array, axis=0)
+            # Soustraire la moyenne de chaque colonne au tableau d'entrée
+            dewowed_arr = array - col_mean
+            return dewowed_arr
+        except:
+            print("Le paramètre en entrée n'est ni un vecteur ni une matrice:")
+            traceback.print_exc()
+
