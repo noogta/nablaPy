@@ -1,71 +1,13 @@
-from RadarData import RadarData
 import numpy as np
 import traceback
-
+from scipy import signal
 class RadarController():
     def __init__(self):
         return
-
-    def apply_constant_gain(self, img:np.ndarray, gain: float):
-        """
-        Applique un gain constant à une image.
-
-        Args:
-            img (numpy.ndarray): L'image d'entrée sous forme de tableau NumPy.
-            gain (float): Le facteur de gain constant à appliquer.
-
-        Returns:
-            numpy.ndarray: L'image modifiée avec le gain constant appliqué.
-        """
-        # Conversion de l'image en flottant pour effectuer les calculs
-        bit = self.get_bit_img(img)
-        # Conversion de notre matrice/image en float
-        img = img.astype("float"+str(bit))
-        # Application du gain constant
-        img = np.clip(img * gain, -(2**bit)+1, (2**bit)-1)
-        return img
-
-    def apply_linear_gain(self, img: np.ndarray, t0: int, gain: float):
-        """
-        Applique un gain linéaire croissant à une image à partir d'une ligne spécifiée.
-
-        Args:
-            img (numpy.ndarray): L'image d'entrée sous forme de tableau NumPy.
-            t0 (int): La ligne à partir de laquelle le gain doit être appliqué.
-            gain (float): Le facteur de gain linéaire initial.
-
-        Returns:
-            numpy.ndarray: L'image modifiée avec le gain linéaire croissant appliqué à partir de la ligne spécifiée.
-        """
-        bit = self.get_bit_img(img)
-        # Conversion de notre matrice/image en float
-        img = img.astype("float"+str(bit))
-        height = img.shape[0]
-
-        for i in range(t0, height):
-            current_gain = gain * (i - t0)+1
-            img[i] = np.clip(img[i] * current_gain, -(2**bit) +1, (2**bit)+1)
-
-        img = np.clip(img, -(2**bit)+1,(2**bit)-1)
-        return img
-
-    # en construction
-    def apply_exponentiel_gain(self, img: np.ndarray, t0: int, a: float):
-        # Conversion de l'image en flottant pour effectuer les calculs
-        bit = self.get_bit_img(img)
-        image_float = img.astype("float"+str(bit))
-        samples = image_float.shape[0]
-        fgain = np.ones(samples)
-        L = np.arange(samples)
-        fgain[t0:] = np.exp(a * (L[t0:] - t0))
-        image_float = image_float * fgain[:, np.newaxis]
-        image_float = np.clip(image_float, -(2**bit)+1, (2**bit)-1)
-        return image_float
-
+    
     def apply_total_gain(self, img: np.ndarray, t0_lin: int, t0_exp: int, g: float, a_lin: float, a: float):
         """
     Méthode permettant d'appliquer le gain souhaité à l'image.
-    Afin de comprendre la construction des fonctions gains (cf Doc/NablaPy.pdf)
 
     Args:
             t0 (float): La ligne à partir de laquelle le gain doit être appliqué.
@@ -77,30 +19,32 @@ class RadarController():
             ndarray : Retourne le tableau traité.
         """
                 # Conversion de l'image en flottant pour effectuer les calculs
-        bits = self.get_bit_img(img)
-        image_float = img.astype("float"+str(bits))
-        samples = image_float.shape[0]
-        fgain = None
-        if(bits == 16):
-            fgain = np.ones(samples, dtype=np.float16)
-        else:
-            if(bits == 32):
-                fgain = np.ones(samples, dtype=np.float32)
-        L = np.arange(samples)
-        
-        #fgain[t0:] = np.exp(a * (L[t0:] - t0))+g*L[t0:]+a_lin*(L[t0:]-t0) #t0 indépendant
-
-        # Gain constant
-        fgain *= g
-        # Gain linéaire
-        fgain[t0_lin:] += a_lin*(L[t0_lin:]-t0_lin)
-
-        # Gain exponentiel
-        fgain[t0_exp:] +=  np.exp(a * (L[t0_exp:] - t0_exp))
-        image_float = image_float * fgain[:, np.newaxis]
-        
-        image_float = np.clip(image_float, -(2**bits)+1, (2**bits)-1, dtype=image_float.dtype)
-        return image_float
+        try:
+            bits = self.get_bit_img(img)
+            image_float = img.astype("float"+str(bits))
+            samples = image_float.shape[0]
+            fgain = None
+            if(bits == 16):
+                fgain = np.ones(samples, dtype=np.float16)
+            else:
+                if(bits == 32):
+                    fgain = np.ones(samples, dtype=np.float32)
+            L = np.arange(samples)
+            
+            # Gain constant
+            fgain *= g
+            # Gain linéaire
+            fgain[t0_lin:] += a_lin*(L[t0_lin:]-t0_lin)
+            # Gain exponentiel
+            fgain[t0_exp:] +=  np.exp(a * (L[t0_exp:] - t0_exp))-1
+            image_float = image_float * fgain[:, np.newaxis]
+            
+            image_float = np.clip(image_float, -(2**bits)+1, (2**bits)-1, dtype=image_float.dtype)
+            return image_float
+        except:
+            print("Erreur lors de l'application des gains:")
+            traceback.print_exc()
+            return image_float
     
     
     def get_bit_img(self, img: np.ndarray):
@@ -113,13 +57,16 @@ class RadarController():
         Returns:
             int: Le nombre de bits du format.
         """
-        format = img.dtype.name
-        if format.startswith("float"):
-            return int(format[5:])
-        elif format.startswith("int"):
-            return int(format[3:])
-        else:
-            raise ValueError("Format invalide. Votre tableau numpy est d'un type différent de celui-ci:\n- int\n- float")
+        try:
+            format = img.dtype.name
+            if format.startswith("float"):
+                return int(format[5:])
+            else:
+                if(format.startswith("int")):
+                    return int(format[3:])
+        except:
+            print("Erreur lors de la lecture des bits:")
+            traceback.print_exc()
         
     def dewow_filter(self, array: np.ndarray):
         """
@@ -139,6 +86,41 @@ class RadarController():
             dewowed_arr = array - col_mean
             return dewowed_arr
         except:
-            print("Le paramètre en entrée n'est ni un vecteur ni une matrice:")
+            print("Erreur lors de l'application du filtre dewow:")
             traceback.print_exc()
 
+    def sub_mean(self, array: np.ndarray, j: int):
+        try:
+            n_tr = array.shape[1]
+            if j==0:
+                mean_tr = np.mean(array, axis=1)
+                for k in range(n_tr):
+                    array[:,k] = array[:,k] - mean_tr
+            else:
+                start = j
+                end = n_tr - j
+                ls=np.arange(start, end, 1)
+                for l in ls:
+                    mean_tr = np.mean(array[:, l-j:l+j], axis=1)
+                    array[:,int(l)] = array[:,l] - mean_tr
+                mean_l = np.mean(array[:, 0:start], axis=1)
+                mean_r = np.mean(array[:, end:n_tr], axis=1)
+                for l in np.arange(0, start, 1):
+                    array[:,int(l)] = array[:,l] - mean_l
+                for l in np.arange(end, n_tr, 1):
+                    array[:,int(l)] = array[:,l] - mean_r
+            return array
+        except:
+            print("Erreur lors de l'application de la trace moyenne:")
+            traceback.print_exc()
+
+    def low_pass(self, array: np.ndarray, cutoff_freq: float, sampling_freq: float):
+        try:
+            normalized_cutoff = cutoff_freq / (sampling_freq / 2)
+            b, a = signal.butter(1, normalized_cutoff, btype='low', analog=False)
+            new_array = signal.lfilter(b, a, array)
+            return new_array
+        except:
+            print("Erreur lors de l'application du filtre:")
+            traceback.print_exc()
+            return array
