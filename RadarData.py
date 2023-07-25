@@ -7,15 +7,17 @@ cste_global = {
     }
 
 class RadarData:
-    """RadarData: Classe contenant toutes les méthodes permettant d'avoir accès aux différentes données"""
-    def __init__(self):
+    """RadarData: Classe permettant de récupérer les différentes données radars"""
+    def __init__(self, path: str):
         """
     Constructeur de la classe RadarData.
 
     Args:
+        path (str): chemin du fichier radar
         """
-    
-    def rd_img(self, path: str):
+        self.path = path
+
+    def rd_img(self):
         """
     Méthode permettant de récupérer la zone sondée à partir d'un fichier .rd3 ou .rd7.
 
@@ -23,43 +25,43 @@ class RadarData:
         Retourne le tableau numpy contenant les données de la zone sondée.
         """
         try:
-            if(path.endswith(".rd3")):
+            if(self.path.endswith(".rd3")):
                 # Ouvrir le fichier en mode binaire "rb"
-                with open(path, mode='rb') as rd3data:  
+                with open(self.path, mode='rb') as rd3data:  
                     byte_data = rd3data.read()
                 # rd3 est codé sur 2 octets
                 rd3 = np.frombuffer(byte_data, dtype=np.int16) 
                 # Reshape de rd3
-                rd3 = rd3.reshape(self.get_feature(path)[0], self.get_feature(path)[1]) 
+                rd3 = rd3.reshape(self.get_feature()[0], self.get_feature()[1]) 
                 rd3 = rd3.transpose()
                 return rd3
             
-            elif(path.endswith(".rd7")):
+            elif(self.path.endswith(".rd7")):
                 # Ouvrir le fichier en mode binaire "rb"
-                with open(path, mode='rb') as rd7data:  
+                with open(self.path, mode='rb') as rd7data:  
                     byte_data = rd7data.read()
                     # rd7 est codé 4 octets
                 rd7 = np.frombuffer(byte_data, dtype=np.int32)
                 # Reshape de rd7
-                rd7 = rd7.reshape(self.get_feature(path)[0], self.get_feature(path)[1])
+                rd7 = rd7.reshape(self.get_feature()[0], self.get_feature()[1])
                 rd7 = rd7.transpose()
                 return rd7
             
-            elif(path.endswith(".DZT")):
+            elif(self.path.endswith(".DZT")):
                 # Ouvrir le fichier en mode binaire
-                with open(path, mode='rb') as DZTdata:
+                with open(self.path, mode='rb') as DZTdata:
                     byte_data = DZTdata.read()
                     # DZT est codé 4 octets
                 DZT = np.frombuffer(byte_data, dtype=np.int32)[(2**15):,]
                 # Reshape de rd7
-                DZT = DZT.reshape(self.get_feature(path)[0], self.get_feature(path)[1])
+                DZT = DZT.reshape(self.get_feature()[0], self.get_feature()[1])
                 DZT = DZT.transpose()
                 return DZT
             
             # À supprimer
             #README
             # Si vous souhaitez rajouter d'autres format:
-            # -1 Ajouter elif(path.endswith(".votre_format")):
+            # -1 Ajouter elif(self.path.endswith(".votre_format")):
             # -2 Veuillez vous renseigner sur la nature de vos données binaire, héxadécimal ...
             # -3 Lire les fichiers et ensuite les transférer dans un tableau numpy
             # -4 Redimmensionnez votre tableau à l'aide du nombre de samples et de traces
@@ -69,7 +71,7 @@ class RadarData:
             print("Erreur lors de la lecture du fichier:")
             traceback.print_exc()
 
-    def get_feature(self, path: str):
+    def get_feature(self):
         """
     Méthode permettant de récupérer les données contenues dans le fichier .rad.
 
@@ -89,8 +91,8 @@ class RadarData:
         value_step = None
         value_step_time_acq = None
         try:
-            if(path.endswith(".rd3") or path.endswith(".rd7")):
-                rad_file_path = path[:-2]+"ad"
+            if(self.path.endswith(".rd3") or self.path.endswith(".rd7")):
+                rad_file_path = self.path[:-2]+"ad"
 
                 # Lecture du fichier .rad
                 with open(rad_file_path, 'r') as file:
@@ -123,8 +125,8 @@ class RadarData:
                         value_antenna = value           
                 return value_trace, value_sample, value_dist_total, value_time,  value_step, value_step_time_acq, value_antenna
             else:
-                if(path.endswith(".DZT")):
-                    hdr = dzt.readgssi(infile=path, zero=[0])[0]
+                if(self.path.endswith(".DZT")):
+                    hdr = dzt.readgssi(infile=self.path, zero=[0])[0]
                     value_trace = hdr['shape'][1]
                     value_sample = hdr['shape'][0]
                     value_dist_total = value_trace / hdr['dzt_spm']
