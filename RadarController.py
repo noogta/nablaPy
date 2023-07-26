@@ -24,6 +24,7 @@ class RadarController():
                 ndarray : Retourne le tableau traité.
         """
         # Conversion de l'image en flottant pour effectuer les calculs
+        image_float = None
         try:
             bits = self.get_bit_img(img)
             image_float = img.astype("float"+str(bits))
@@ -96,26 +97,12 @@ class RadarController():
             print("Erreur lors de l'application du filtre dewow:")
             traceback.print_exc()
 
-    def sub_mean(self, img: np.ndarray, j: int):
+    def sub_mean(self, img: np.ndarray):
         try:
             n_tr = img.shape[1]
-            if j==0:
-                mean_tr = np.mean(img, axis=1)
-                for k in range(n_tr):
-                    img[:,k] = img[:,k] - mean_tr
-            else:
-                start = j
-                end = n_tr - j
-                ls=np.arange(start, end, 1)
-                for l in ls:
-                    mean_tr = np.mean(img[:, l-j:l+j], axis=1)
-                    img[:,int(l)] = img[:,l] - mean_tr
-                mean_l = np.mean(img[:, 0:start], axis=1)
-                mean_r = np.mean(img[:, end:n_tr], axis=1)
-                for l in np.arange(0, start, 1):
-                    img[:,int(l)] = img[:,l] - mean_l
-                for l in np.arange(end, n_tr, 1):
-                    img[:,int(l)] = img[:,l] - mean_r
+            mean_tr = np.mean(img, axis=1)
+            for k in range(n_tr):
+                img[:,k] = img[:,k] - mean_tr
             return img
         except:
             print("Erreur lors de l'application de la trace moyenne:")
