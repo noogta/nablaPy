@@ -35,6 +35,12 @@ class RadarController():
             else:
                 if(bits == 32):
                     fgain = np.ones(samples, dtype=np.float32)
+                else:
+                    if(bits == 64):
+                        fgain = np.ones(samples, dtype=np.float64)
+                        print("Attention 64 bits")
+                    else:
+                        print(f"Erreur: bits{bits}")
             L = np.arange(samples)
             
             # Gain constant
@@ -46,8 +52,7 @@ class RadarController():
             # Gain exponentiel
             fgain[t0_exp:] +=  np.exp(a * (L[t0_exp:] - t0_exp))-1
             image_float = image_float * fgain[:, np.newaxis]
-            
-            image_float = np.clip(image_float, -(2**bits)+1, (2**bits)-1, dtype=image_float.dtype)
+            image_float = np.clip(image_float,-(2**bits)+1, (2**bits)-1, dtype=image_float.dtype)
             return image_float
         except:
             print("Erreur lors de l'application des gains:")
@@ -89,7 +94,7 @@ class RadarController():
         """
         try:
             # Calculer la moyenne par colonne
-            col_mean = np.mean(img, axis=0)
+            col_mean = np.mean(img, axis=0, dtype=img.dtype)
             # Soustraire la moyenne de chaque colonne au tableau d'entrée
             dewowed_arr = img - col_mean
             return dewowed_arr
@@ -97,22 +102,39 @@ class RadarController():
             print("Erreur lors de l'application du filtre dewow:")
             traceback.print_exc()
 
-    def sub_mean(self, img: np.ndarray):
+    def sub_mean(self, img: np.ndarray, j: int):
         try:
-            n_tr = img.shape[1]
-            mean_tr = np.mean(img, axis=1)
-            for k in range(n_tr):
-                img[:,k] = img[:,k] - mean_tr
-            return img
+            bits = self.get_bit_img(img)
+            array = img.astype("float"+str(bits))
+            n_tr = array.shape[1]
+            if j==0:
+                mean_tr = np.mean(array, axis=1, dtype=array.dtype)
+                for k in range(n_tr):
+                    array[:,k] = array[:,k] - mean_tr
+            else:
+                start = j
+                end = n_tr - j
+                ls=np.arange(start, end, 1,)
+                for l in ls:
+                    mean_tr = np.mean(array[:, l-j:l+j], axis=1, dtype=array.dtype)
+                    array[:,int(l)] = array[:,l] - mean_tr
+                mean_l = np.mean(array[:, 0:start], axis=1, dtype=array.dtype)
+                mean_r = np.mean(array[:, end:n_tr], axis=1, dtype=array.dtype)
+                for l in np.arange(0, start, 1):
+                    array[:,int(l)] = array[:,l] - mean_l
+                for l in np.arange(end, n_tr, 1):
+                    array[:,int(l)] = array[:,l] - mean_r
+            return array
         except:
             print("Erreur lors de l'application de la trace moyenne:")
             traceback.print_exc()
+            return img
 
     def low_pass(self, img: np.ndarray, cutoff_freq: float, sampling_freq: float):
         try:
             normalized_cutoff = cutoff_freq / (sampling_freq / 2)
             b, a = signal.butter(1, normalized_cutoff, btype='low', analog=False)
-            new_array = signal.lfilter(b, a, img)
+            new_array = signal.lfilter(b, a, img).astype(img.dtype)
             return new_array
         except:
             print("Erreur lors de l'application du filtre:")
