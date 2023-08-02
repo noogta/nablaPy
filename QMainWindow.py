@@ -6,7 +6,7 @@ import numpy as np
 
 from RadarController import RadarController
 from RadarData import RadarData, cste_global
-from math import sqrt, ceil, floor
+from math import sqrt, floor
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QApplication, QMainWindow, QFileDialog, QWidget, QLabel, QVBoxLayout, QHBoxLayout, QFrame, QListWidget, QPushButton, QScrollArea, QComboBox, QLineEdit, QTabWidget
 from PyQt6.QtGui import QAction, QFont
@@ -105,7 +105,7 @@ class MainWindow():
 
         # Définir la taille limite du sidebar
         self.sidebar_widget.setMinimumHeight(min_height)
-        self.sidebar_widget.setFixedWidth(294)
+        self.sidebar_widget.setFixedWidth(330)
 
 
 
@@ -394,7 +394,7 @@ class MainWindow():
 
         self.gain_const_entry.editingFinished.connect(lambda: self.update_img(self.t0_lin_value,self.t0_exp_value, update_gain_const_value(), self.gain_lin_value, self.gain_exp_value, self.cb_value, self.ce_value, self.sub_mean_value, self.cutoff_value, self.sampling_value))
 
-        gain_lin_label = QLabel("Gain linéaire <br><span style='font-size:8pt'>Formule: a(x-t0)</span></br>")
+        gain_lin_label = QLabel("Gain linéaire") # <br><span style='font-size:8pt'>Formule: a(x-t0)</span></br>
         label_layout.addWidget(gain_lin_label)
 
         self.gain_lin_entry = QLineEdit()
@@ -419,12 +419,10 @@ class MainWindow():
                 L_mult = [p_max / n_samp, t_max / n_samp, 1]
                 if(gain_lin_entry_value.isdigit() or gain_lin_entry_value.find(".") != -1):
                     if(t0_lin_entry_value.isdigit() or t0_lin_entry_value.find(".") != -1):
-                        print((float(t0_lin_entry_value) / L_mult[yindex]),self.ce_value-self.cb_value)
                         if((float(t0_lin_entry_value) / L_mult[yindex]) >= 0. and (float(t0_lin_entry_value) / L_mult[yindex]) <= self.ce_value-self.cb_value):
                             self.t0_lin_value = int(float(t0_lin_entry_value) / L_mult[yindex])
                             self.gain_lin_value = float(gain_lin_entry_value)
                         else:
-                            print((float(t0_lin_entry_value) / L_mult[yindex]),self.ce_value-self.cb_value)
                             # Efface le contenu actuel de la zone de texte
                             self.t0_lin_entry.clear()
                             # Insère le message d'erreur
@@ -453,7 +451,6 @@ class MainWindow():
                             self.gain_lin_value = 0.
 
                     else:
-                        print("aucune valeur du tout")
                         self.t0_lin_value = 0
                         self.gain_lin_value = 0.
 
@@ -464,7 +461,7 @@ class MainWindow():
         self.gain_lin_entry.editingFinished.connect(lambda: self.update_img(update_gain_lin_value()[1],self.t0_exp_value, self.gain_const_value, update_gain_lin_value()[0], self.gain_exp_value, self.cb_value, self.ce_value, self.sub_mean_value, self.cutoff_value, self.sampling_value))
         self.t0_lin_entry.editingFinished.connect(lambda: self.update_img(update_gain_lin_value()[1],self.t0_exp_value, self.gain_const_value, update_gain_lin_value()[0], self.gain_exp_value, self.cb_value, self.ce_value, self.sub_mean_value, self.cutoff_value, self.sampling_value))
 
-        gain_exp_label = QLabel("Gain exponentiel <br><span style='font-size:8pt'>Formule: e^(a(x-t0))-1</span></br>")
+        gain_exp_label = QLabel("Gain exponentiel") #<br><span style='font-size:6pt'>Formule: a*e^(b(x-t0))</span></br><br><span style='font-size:6pt'>b = ln(a)/75</span></br>
         label_layout.addWidget(gain_exp_label)
 
         self.gain_exp_entry = QLineEdit()
@@ -561,6 +558,20 @@ class MainWindow():
 
         self.def_entry.editingFinished.connect(lambda: self.update_axes(self.epsilon))
 
+        pointer_layout = QHBoxLayout()
+        gain_layout.addLayout(pointer_layout)
+
+        pointer_label = QLabel("Pointeur:")
+        pointer_layout.addWidget(pointer_label)
+
+        data_pointer_layout = QVBoxLayout()
+        pointer_layout.addLayout(data_pointer_layout)
+
+        self.xpointer_label = QLabel()
+        self.ypointer_label = QLabel()
+        data_pointer_layout.addWidget(self.xpointer_label)
+        data_pointer_layout.addWidget(self.ypointer_label)
+
         # Second onglet
         fc_wid_ntb = QWidget()
         notebook.addTab(fc_wid_ntb, "Filtres/Découpage")
@@ -589,8 +600,8 @@ class MainWindow():
         ufc_entry_layout = QVBoxLayout()
         under_fc_layout.addLayout(ufc_entry_layout)
 
-        sub_mean_label = QLabel("Traces moyenne")
-        ufc_label_layout.addWidget(sub_mean_label)
+        self.sub_mean_label = QLabel("Traces moyenne (en m)")
+        ufc_label_layout.addWidget(self.sub_mean_label)
 
         self.sub_mean_entry = QLineEdit()
         ufc_entry_layout.addWidget(self.sub_mean_entry)
@@ -734,7 +745,7 @@ class MainWindow():
                         if(self.ord_unit.currentText() == "Profondeur"):
                             self.cb_value = ysca1 / L_mult[yindex]
                         else:
-                            self.cb_value = ceil(ysca1 / L_mult[yindex])
+                            self.cb_value = floor(ysca1 / L_mult[yindex])
                 else:
                     self.cb_value = 0.
                 if(self.ce_entry.text() != ''):
@@ -743,13 +754,12 @@ class MainWindow():
                         if(self.ord_unit.currentText() == "Profondeur"):
                             self.ce_value = ysca2 / L_mult[yindex]
                         else:
-                            self.ce_value = ceil(ysca2 / L_mult[yindex])
-
+                            self.ce_value = floor(ysca2 / L_mult[yindex])
                 else:
                     if(self.ord_unit.currentText() == "Profondeur"):
                         self.ce_value = L_max[yindex] / L_mult[yindex]
                     else:
-                        self.ce_value = ceil(L_max[yindex] / L_mult[yindex])
+                        self.ce_value = floor(L_max[yindex] / L_mult[yindex])
             except:
                 print(f"Erreur dans le découpage:")
                 traceback.print_exc()
@@ -933,10 +943,10 @@ class MainWindow():
     def radargram(self):
         layout = QVBoxLayout(self.radargram_widget)
         self.figure = Figure(figsize=(12, 8), facecolor='none')
-        self.canvas_img = FigureCanvas(self.figure)
+        self.canvas = FigureCanvas(self.figure)
         self.axes = self.figure.add_subplot(1,1,1)
 
-        layout.addWidget(self.canvas_img)
+        layout.addWidget(self.canvas)
 
         # Initialisation des axes x et y
             # Réglages des axes
@@ -948,7 +958,9 @@ class MainWindow():
 
         self.axes.set_axis_off()
 
-        self.canvas_img.setStyleSheet("background-color: transparent;")
+        self.canvas.setStyleSheet("background-color: transparent;")
+        self.canvas.mpl_connect('button_press_event', self.pointer)
+
 
 
     def update_img(self, t0_lin: int, t0_exp: int, g: float, a_lin: float, a: float, cb: float, ce: float, sub, cutoff: float, sampling: float):
@@ -1037,7 +1049,7 @@ class MainWindow():
             self.figure.suptitle(self.selected_file[:-4], y=0.05, va="bottom")
             self.axes.imshow(self.img_modified, cmap="gray", interpolation="nearest", aspect="auto", extent = [X[0],X[-1],Y[-1], Y[0]])
             self.update_scale_labels(epsilon)
-            self.canvas_img.draw()
+            self.canvas.draw()
 
             self.prec_abs = self.abs_unit.currentText()
             self.prec_ord = self.ord_unit.currentText()
@@ -1074,7 +1086,7 @@ class MainWindow():
                 if(self.ord_unit.currentText() == "Profondeur"):
                     cb = round((self.cb_value / n_samp) * L_ymax[self.Yunit.index(self.ord_unit.currentText())],1)
                 else:
-                    cb = ceil((self.cb_value / n_samp) * L_ymax[self.Yunit.index(self.ord_unit.currentText())])
+                    cb = floor((self.cb_value / n_samp) * L_ymax[self.Yunit.index(self.ord_unit.currentText())])
 
                 # Efface le contenu actuel de la zone de texte
                 self.cb_entry.clear()
@@ -1085,7 +1097,7 @@ class MainWindow():
                 if(self.ord_unit.currentText() == "Profondeur"):
                     ce = round((self.ce_value / n_samp) * L_ymax[self.Yunit.index(self.ord_unit.currentText())],1)
                 else:
-                    ce = ceil((self.ce_value / n_samp) * L_ymax[self.Yunit.index(self.ord_unit.currentText())])
+                    ce = floor((self.ce_value / n_samp) * L_ymax[self.Yunit.index(self.ord_unit.currentText())])
                 
                 # Efface le contenu actuel de la zone de texte
                 self.ce_entry.clear()
@@ -1097,7 +1109,7 @@ class MainWindow():
                 if(self.ord_unit.currentText() == "Profondeur"):
                     t0_lin_value = round((self.t0_lin_value / n_samp) * L_ymax[self.Yunit.index(self.ord_unit.currentText())],1)
                 else:
-                    t0_lin_value = ceil((self.t0_lin_value / n_samp) * L_ymax[self.Yunit.index(self.ord_unit.currentText())])
+                    t0_lin_value = floor((self.t0_lin_value / n_samp) * L_ymax[self.Yunit.index(self.ord_unit.currentText())])
                 
                 # Efface le contenu actuel de la zone de texte
                 self.t0_lin_entry.clear()
@@ -1107,7 +1119,7 @@ class MainWindow():
                 if(self.ord_unit.currentText() == "Profondeur"):
                     t0_exp_value = round((self.t0_exp_value / n_samp) * L_ymax[self.Yunit.index(self.ord_unit.currentText())],1)
                 else:
-                    t0_exp_value = ceil((self.t0_exp_value / n_samp) * L_ymax[self.Yunit.index(self.ord_unit.currentText())])
+                    t0_exp_value = floor((self.t0_exp_value / n_samp) * L_ymax[self.Yunit.index(self.ord_unit.currentText())])
                 
                 # Efface le contenu actuel de la zone de texte
                 self.t0_exp_entry.clear()
@@ -1118,7 +1130,7 @@ class MainWindow():
                 if(self.abs_unit.currentText() == "Distance"):
                     sub_mean_value = round((self.sub_mean_value / n_tr) * L_xmax[self.Xunit.index(self.abs_unit.currentText())],1)
                 else:
-                    sub_mean_value = ceil((self.sub_mean_value / n_tr) * L_xmax[self.Xunit.index(self.abs_unit.currentText())])
+                    sub_mean_value = floor((self.sub_mean_value / n_tr) * L_xmax[self.Xunit.index(self.abs_unit.currentText())])
 
                 # Efface le contenu actuel de la zone de texte
                 self.sub_mean_entry.clear()
@@ -1136,6 +1148,12 @@ class MainWindow():
             self.data_ylabel.setText(self.ord_unit.currentText() + ": {:.2f} {}".format(L_ymax[yindex], yLabel[yindex]))
 
             self.ant_radar.setText("Antenne radar: "+antenna)
+
+            if(xindex != 2):
+                self.sub_mean_label.setText("Traces moyenne (en "+ str(xLabel[xindex])+")")
+            else:
+                self.sub_mean_label.setText("Traces moyenne")
+
         except:
             print("Erreur Modification des labels et des entrées:")
             traceback.print_exc()
@@ -1157,11 +1175,17 @@ class MainWindow():
         self.axes.yaxis.set_ticks_position('left')
         self.axes.yaxis.set_label_position('left')
 
+    def pointer(self, event):
+        # Récupérer les coordonnées du clic de souris
+        x = event.xdata
+        y = event.ydata
 
-        # Obtenir la position et la taille du canvas
-        
-        """
-        canvas_position = self.canvas_img.pos()
-        canvas_size = self.canvas_img.size()
-        print("Position du canvas:", canvas_position)
-        print("Taille du canvas:", canvas_size)"""
+        # Vérifier si les coordonnées sont valides
+        xLabel = ["m", "s", "mesures"]
+        yLabel = ["m", "ns", "samples"]
+
+        xindex = self.Xunit.index(self.abs_unit.currentText())
+        yindex = self.Yunit.index(self.ord_unit.currentText())
+        if x is not None and y is not None:
+            self.xpointer_label.setText("{:.2f} {}".format(x, xLabel[xindex]))
+            self.ypointer_label.setText("{:.2f} {}".format(y, yLabel[yindex]))

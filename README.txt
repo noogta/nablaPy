@@ -15,8 +15,10 @@ Ce projet nécessite l'installation de certaines bibliothèques Python ainsi que
      ```
      pip --version
      ```
+2. Chemin de votre interpréteur Python
+  Vous devez mettre dans le fichier Makefile, le chemin où se trouve votre interpréteur python
 
-2. Installation des bibliothèques Python
+3. Installation des bibliothèques Python
    Vérifier que vous avez la commande make sur votre ordinateur. Éxécutez la commande suivante dans un terminal ouvert depuis le dossier:
     make
 

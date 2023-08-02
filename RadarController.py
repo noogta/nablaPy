@@ -50,7 +50,10 @@ class RadarController():
             fgain[t0_lin:] += a_lin*(L[t0_lin:]-t0_lin)
 
             # Gain exponentiel
-            fgain[t0_exp:] +=  np.exp(a * (L[t0_exp:] - t0_exp))-1
+            if(a != 0 and a != 1):
+                b = np.log(a) / 75
+                fgain[t0_exp:] += a * (np.exp(b * (L[t0_exp:]-t0_exp)))
+
             image_float = image_float * fgain[:, np.newaxis]
             image_float = np.clip(image_float,-(2**bits)+1, (2**bits)-1, dtype=image_float.dtype)
             return image_float

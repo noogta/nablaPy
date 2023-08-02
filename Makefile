@@ -1,12 +1,12 @@
-# Makefile to install required Python libraries and external modules
+# Fichier Makefile pour installer les bibliothèques Python requises et les modules externes
 
-# Define the Python interpreter to use
-PYTHON := /bin/python3
+# Définir l'interpréteur Python à utiliser
+PYTHON := /chemin/interpréteur/python
 
-# Define the required libraries
+# Définir les bibliothèques requises
 LIBRARIES := numpy scipy
 
-# Define the external modules
+# Définir les modules externes
 EXTERNAL_MODULES := readgssi matplotlib PyQt6
 
 # Targets
