@@ -6,11 +6,11 @@ import numpy as np
 
 from RadarController import RadarController
 from RadarData import RadarData, cste_global
+from QCanvas import Canvas
 from math import sqrt, floor
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QApplication, QMainWindow, QFileDialog, QWidget, QLabel, QVBoxLayout, QHBoxLayout, QFrame, QListWidget, QPushButton, QScrollArea, QComboBox, QLineEdit, QTabWidget
 from PyQt6.QtGui import QAction, QFont
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 
 class MainWindow():
@@ -56,11 +56,14 @@ class MainWindow():
         self.cb_value = 0
         self.ce_value = None
         self.feature = None
+        self.mode = "pointer"
 
         self.Xunit = ["Distance", "Temps", "Traces"]
         self.Yunit = ["Profondeur", "Temps", "Samples"]
         self.Xlabel = ["Distance en m", "Temps en s", "Traces"]
         self.Ylabel = ["Profondeur en m", "Temps en ns", "Samples"]
+        self.xLabel = ["m", "s", "mesures"]
+        self.yLabel = ["m", "ns", "samples"]
         self.sidebar()
         self.radargram()
 
@@ -205,12 +208,11 @@ class MainWindow():
         try:
             folder_path = QFileDialog.getExistingDirectory(self.window, "Sauvegarde des images")
             files = [self.listbox_files.item(row).text() for row in range(self.listbox_files.count())]
-            file_index = 0
             prec_selected_file = self.selected_file
             for file in files:
                 self.selected_file = file
-                file_index += 1
                 self.Rdata = RadarData(self.selected_folder + "/"+ file)
+                self.feature = self.Rdata.get_feature()
 
                 self.update_canvas_image()
 
@@ -227,7 +229,7 @@ class MainWindow():
                     self.img_modified = self.Rcontroller.sub_mean(self.img_modified, self.sub_mean_value)
 
                 if(self.inv_list_button.text() == "Inversement pairs activé"):
-                    if(file_index % 2 == 0):
+                    if(files.index(file) % 2 != 0):
                         self.img_modified = np.fliplr(self.img_modified)
 
                 if(self.inv_button.text() == "Inversement activé"):
@@ -943,9 +945,9 @@ class MainWindow():
     def radargram(self):
         layout = QVBoxLayout(self.radargram_widget)
         self.figure = Figure(figsize=(12, 8), facecolor='none')
-        self.canvas = FigureCanvas(self.figure)
         self.axes = self.figure.add_subplot(1,1,1)
-
+        self.QCanvas = Canvas(self.figure, self.axes, self)
+        self.canvas = self.QCanvas.canvas
         layout.addWidget(self.canvas)
 
         # Initialisation des axes x et y
@@ -959,8 +961,13 @@ class MainWindow():
         self.axes.set_axis_off()
 
         self.canvas.setStyleSheet("background-color: transparent;")
-        self.canvas.mpl_connect('button_press_event', self.pointer)
-
+        
+        """
+        # Connecter les événements de souris aux fonctions de dessin
+        self.canvas.mpl_connect('button_press_event', self.Canvas_m.on_canvas_clicked)
+        self.canvas.mpl_connect('motion_notify_event', self.Canvas_m.on_canvas_motion)
+        self.canvas.mpl_connect('button_release_event', self.Canvas_m.on_canvas_release)
+        """
 
 
     def update_img(self, t0_lin: int, t0_exp: int, g: float, a_lin: float, a: float, cb: float, ce: float, sub, cutoff: float, sampling: float):
@@ -1073,8 +1080,6 @@ class MainWindow():
             step_time = self.feature[5]
             antenna = self.feature[6]
 
-            xLabel = ["m", "s", "mesures"]
-            yLabel = ["m", "ns", "samples"]
 
             xindex = self.Xunit.index(self.abs_unit.currentText())
             yindex = self.Yunit.index(self.ord_unit.currentText())
@@ -1144,13 +1149,13 @@ class MainWindow():
 
             d_max = self.feature[2]
             L_xmax = [d_max, step_time*n_tr, n_tr]
-            self.data_xlabel.setText(self.abs_unit.currentText() + ": {:.2f} {}".format(L_xmax[xindex], xLabel[xindex]))
-            self.data_ylabel.setText(self.ord_unit.currentText() + ": {:.2f} {}".format(L_ymax[yindex], yLabel[yindex]))
+            self.data_xlabel.setText(self.abs_unit.currentText() + ": {:.2f} {}".format(L_xmax[xindex], self.xLabel[xindex]))
+            self.data_ylabel.setText(self.ord_unit.currentText() + ": {:.2f} {}".format(L_ymax[yindex], self.yLabel[yindex]))
 
             self.ant_radar.setText("Antenne radar: "+antenna)
 
             if(xindex != 2):
-                self.sub_mean_label.setText("Traces moyenne (en "+ str(xLabel[xindex])+")")
+                self.sub_mean_label.setText("Traces moyenne (en "+ str(self.xLabel[xindex])+")")
             else:
                 self.sub_mean_label.setText("Traces moyenne")
 
@@ -1167,6 +1172,7 @@ class MainWindow():
 
         # Réinitialiser les axes de la figure
         self.axes = self.figure.add_subplot(111)
+        self.QCanvas.axes = self.axes
         self.axes.set_xlabel("a")
         self.axes.set_ylabel("b")
 
@@ -1175,17 +1181,9 @@ class MainWindow():
         self.axes.yaxis.set_ticks_position('left')
         self.axes.yaxis.set_label_position('left')
 
-    def pointer(self, event):
-        # Récupérer les coordonnées du clic de souris
-        x = event.xdata
-        y = event.ydata
 
-        # Vérifier si les coordonnées sont valides
-        xLabel = ["m", "s", "mesures"]
-        yLabel = ["m", "ns", "samples"]
 
-        xindex = self.Xunit.index(self.abs_unit.currentText())
-        yindex = self.Yunit.index(self.ord_unit.currentText())
-        if x is not None and y is not None:
-            self.xpointer_label.setText("{:.2f} {}".format(x, xLabel[xindex]))
-            self.ypointer_label.setText("{:.2f} {}".format(y, yLabel[yindex]))
+if __name__ == '__main__':
+    software_name = "NablaPy"
+    main_window = MainWindow(software_name)
+    main_window.show()
