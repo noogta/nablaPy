@@ -9,6 +9,8 @@ class RadarController():
         Constructeur de la classe RadarController.
         """
         return
+    
+    ############################ Méthode ############################
 
     def apply_total_gain(self, img: np.ndarray, t0_lin: int, t0_exp: int, g: float, a_lin: float, a: float):
         """
@@ -143,3 +145,5 @@ class RadarController():
             print("Erreur lors de l'application du filtre:")
             traceback.print_exc()
             return img
+
+    ############################ Mise à jour ############################

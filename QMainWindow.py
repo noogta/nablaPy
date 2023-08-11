@@ -9,7 +9,7 @@ from RadarData import RadarData, cste_global
 from QCanvas import Canvas
 from math import sqrt, floor
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QApplication, QMainWindow, QFileDialog, QWidget, QLabel, QVBoxLayout, QHBoxLayout, QFrame, QListWidget, QPushButton, QScrollArea, QComboBox, QLineEdit, QTabWidget
+from PyQt6.QtWidgets import QApplication, QMainWindow, QFileDialog, QWidget, QLabel, QVBoxLayout, QHBoxLayout, QFrame, QListWidget, QPushButton, QComboBox, QLineEdit, QTabWidget, QCheckBox
 from PyQt6.QtGui import QAction, QFont
 from matplotlib.figure import Figure
 
@@ -39,8 +39,18 @@ class MainWindow():
         #self.center_window()
 
         # Affichage du Menu
-        self.ext_list = [".rd7", "rd3", ".DZT"]
-        self.freq_state = "Filtrage désactivé"
+        self.ext_list = [".rd7", ".rd3", ".DZT"]
+        self.freq_state = ["Filtrage désactivé", "Haute Fréquence", "Basse Fréquence"]
+        self.inv_list_state = "off"
+        self.dewow_state = "off"
+        self.inv_state = "off"
+        self.equal_state = "off"
+
+        # Initialisation du Canvas
+        self.figure = Figure(figsize=(12, 8), facecolor='none')
+        self.axes = self.figure.add_subplot(1,1,1)
+        self.QCanvas = Canvas(self.figure, self.axes, self)
+
         self.menu()
         self.main_block()
 
@@ -56,7 +66,7 @@ class MainWindow():
         self.cb_value = 0
         self.ce_value = None
         self.feature = None
-        self.mode = "pointer"
+        self.def_value = None
 
         self.Xunit = ["Distance", "Temps", "Traces"]
         self.Yunit = ["Profondeur", "Temps", "Samples"]
@@ -64,9 +74,12 @@ class MainWindow():
         self.Ylabel = ["Profondeur en m", "Temps en ns", "Samples"]
         self.xLabel = ["m", "s", "mesures"]
         self.yLabel = ["m", "ns", "samples"]
-        self.sidebar()
-        self.radargram()
 
+        self.selected_file = None
+
+        self.radargram()
+        self.sidebar()
+    
     def show(self):
         # Affichage de la fenêtre
         self.window.show()
@@ -95,25 +108,54 @@ class MainWindow():
         save_imgs_action.triggered.connect(self.save_all)
         file_menu.addAction(save_imgs_action)
 
+        export_action = QAction("Exporter les bbox", self.window)
+        export_action.triggered.connect(self.QCanvas.export_json)
+        file_menu.addAction(export_action)
+
         quit_action = QAction("Quitter", self.window)
         quit_action.triggered.connect(self.window.close)  # Fermer la fenêtre lorsqu'on clique sur Quitter
         file_menu.addAction(quit_action)
 
+        # Création des actions pour le menu "Modifier"
+        del_pointer = QAction("Supprimer le pointeur", self.window)
+        del_pointer.triggered.connect(self.QCanvas.clear_pointer)
+        modified_menu.addAction(del_pointer)
+
+        del_points = QAction("Supprimer les points", self.window)
+        del_points.triggered.connect(self.QCanvas.clear_points)
+        modified_menu.addAction(del_points)
+
+        del_rectangles = QAction("Supprimer les rectangles", self.window)
+        del_rectangles.triggered.connect(self.QCanvas.clear_rectangles)
+        modified_menu.addAction(del_rectangles)
+
+        del_canvas = QAction("Supprimer les éléments du canvas", self.window)
+        del_canvas.triggered.connect(self.QCanvas.clear_canvas)
+        modified_menu.addAction(del_canvas)
+
+
     def main_block(self):
         # Length
-        min_height = 775
+        min_height = 850
+
+        # Widget central pour contenir le layout principal
+        main_widget = QWidget()
+        self.window.setCentralWidget(main_widget)
+        main_layout = QVBoxLayout()
+        main_widget.setLayout(main_layout)
+
+        # Ajout du Menu
+        main_layout.setMenuBar(self.window.menuBar())
 
         # Sidebar
-        self.sidebar_widget = QWidget(self.window)
+        self.sidebar_widget = QWidget()
 
         # Définir la taille limite du sidebar
         self.sidebar_widget.setMinimumHeight(min_height)
         self.sidebar_widget.setFixedWidth(330)
 
-
-
         # Radargram
-        self.radargram_widget = QWidget(self.window)
+        self.radargram_widget = QWidget()
 
         # Définir la taille limite du radargramme
         self.radargram_widget.setMinimumWidth(600)
@@ -123,17 +165,7 @@ class MainWindow():
         contents_layout = QHBoxLayout()
         contents_layout.addWidget(self.sidebar_widget)
         contents_layout.addWidget(self.radargram_widget)
-
-        # Layout vertical pour placer le menu en haut et le layout horizontal en bas
-        main_layout = QVBoxLayout()
-        main_layout.setMenuBar(self.window.menuBar())
         main_layout.addLayout(contents_layout)
-
-        # Widget central pour contenir le layout principal
-        central_widget = QWidget()
-        central_widget.setLayout(main_layout)
-        self.window.setCentralWidget(central_widget)
-
 
     def open_folder(self):
         try:
@@ -164,23 +196,22 @@ class MainWindow():
                 self.listbox_files.clear()
 
                 # États/Formats pour le filtrage par fréquence
-                state_freq_list = ["Filtrage désactivé", "Haute Fréquence", "Basse Fréquence"]
                 format_freq_list = ["", "_1", "_2"]
-                index_freq = state_freq_list.index(self.freq_state)
+                index_freq = self.freq_state.index(self.filter_button.text())
 
                 # États pour le filtrage par format
                 index_format = self.ext_list.index(self.mult_button.text())
 
                 # Filtrage selon les différents critères
                 for file in self.files_list:
-                    if (file.endswith(self.ext_list[index_format])) and (file.find(format_freq_list[index_freq]) != -1 or state_freq_list[index_freq] == "shut"):
+                    if (file.endswith(self.ext_list[index_format])) and (file.find(format_freq_list[index_freq]) != -1 or self.freq_state[index_freq] == "Filtrage désactivé"):
                         self.listbox_files.addItem(file)
                     else:
                         if self.ext_list[index_format] == "Format":
-                            if (file.find(format_freq_list[index_freq]) != -1 or state_freq_list[index_freq] == "shut"):
+                            if (file.find(format_freq_list[index_freq]) != -1 or self.freq_state[index_freq] == "Filtrage désactivé"):
                                 self.listbox_files.addItem(file)
                         else:
-                            if (file.endswith(self.ext_list[index_format])) and (file.find(format_freq_list[index_freq]) != -1 or state_freq_list[index_freq] == "shut"):
+                            if (file.endswith(self.ext_list[index_format])) and (file.find(format_freq_list[index_freq]) != -1 or self.freq_state[index_freq] == "Filtrage désactivé"):
                                 self.listbox_files.addItem(file)
             else:
                 print("Aucun dossier n'a été sélectionné.")
@@ -219,7 +250,7 @@ class MainWindow():
                 self.img = self.Rdata.rd_img()
                 self.img_modified = self.img[int(self.cb_value):int(self.ce_value), :]
 
-                if(self.dewow_button.text() == "Dewow activé"):
+                if(self.dewow_state == "on"):
                     self.img_modified = self.Rcontroller.dewow_filter(self.img_modified)
 
                 if(self.cutoff_entry.text() != '' and self.sampling_entry.text() != ''):
@@ -228,22 +259,22 @@ class MainWindow():
                 if(self.sub_mean_value != None):
                     self.img_modified = self.Rcontroller.sub_mean(self.img_modified, self.sub_mean_value)
 
-                if(self.inv_list_button.text() == "Inversement pairs activé"):
+                if(self.inv_list_state == "on"):
                     if(files.index(file) % 2 != 0):
                         self.img_modified = np.fliplr(self.img_modified)
 
-                if(self.inv_button.text() == "Inversement activé"):
+                if(self.inv_state == "on"):
                     self.img_modified = np.fliplr(self.img_modified)
 
                 self.img_modified = self.Rcontroller.apply_total_gain(self.img_modified, self.t0_lin_value, self.t0_exp_value, self.gain_const_value, self.gain_lin_value, self.gain_exp_value)
 
-                if(self.eq_button.text() == "Égalisation activée"):
+                if(self.equal_state == "on"):
                     if self.img_modified.shape[1] < self.max_tr:
                         # Ajouter des colonnes supplémentaires
                         additional_cols = self.max_tr - self.img_modified.shape[1]
                         self.img_modified = np.pad(self.img_modified, ((0, 0), (0, additional_cols)), mode='constant')            
 
-                self.update_axes(self.epsilon)
+                self.update_axes(self.def_value, self.epsilon)
 
                 # Sauvegarder l'image en format PNG
                 file_save_path = folder_path + "/" + file + ".png"
@@ -272,22 +303,22 @@ class MainWindow():
         file_label.setFont(QFont("Arial", 16, QFont.Weight.Bold))  # Use QFont to set the font
         title_file_layout.addWidget(file_label)
 
-        list_scroll_area = QScrollArea()
         self.listbox_files = QListWidget()
-        list_scroll_area.setWidget(self.listbox_files) 
-        list_scroll_area.setWidgetResizable(True)
         self.listbox_files.clicked.connect(self.select_file)
-        list_layout.addWidget(list_scroll_area)
+        list_layout.addWidget(self.listbox_files)
+
+        button_layout = QHBoxLayout()
+        list_layout.addLayout(button_layout)
 
         self.filter_button = QPushButton("Filtrage désactivé")
         self.filter_button.clicked.connect(self.filter_list_file)
-        list_layout.addWidget(self.filter_button)
+        button_layout.addWidget(self.filter_button)
 
         self.mult_button = QPushButton(".rd7")
         self.mult_button.clicked.connect(self.filter_mult)
-        list_layout.addWidget(self.mult_button)
+        button_layout.addWidget(self.mult_button)
 
-        self.inv_list_button = QPushButton("Inversement pairs désactivé")
+        self.inv_list_button = QPushButton("Inversement pairs")
         self.inv_list_button.clicked.connect(self.inv_file_list)
         list_layout.addWidget(self.inv_list_button)
 
@@ -310,8 +341,37 @@ class MainWindow():
         self.abs_unit = QComboBox()
         self.abs_unit.addItems(["Distance", "Temps", "Traces"])
         self.abs_unit.setCurrentText("Distance")
-        self.abs_unit.currentTextChanged.connect(lambda: self.update_axes(self.epsilon))
+        self.abs_unit.currentTextChanged.connect(lambda: self.update_axes(self.def_value, self.epsilon))
         display_layout.addWidget(self.abs_unit)
+
+        def_layout = QHBoxLayout()
+        display_layout.addLayout(def_layout)
+
+        self.def_label = QLabel("Définir la Distance:")
+        def_layout.addWidget(self.def_label)
+
+        self.def_entry = QLineEdit()
+        self.def_entry.setPlaceholderText("en m")
+        def_layout.addWidget(self.def_entry)
+
+        def update_def_value():
+            try:
+                self.reset_style(self.def_entry)
+                self.def_value = float(self.def_entry.text())
+                if(self.def_value < 0.):
+                    self.QLineError(self.def_entry,"Erreur: d > 0")
+                    self.def_value = None # Valeur par défaut en cas d'erreur
+
+                else:
+                    self.def_entry.setPlaceholderText(str(self.def_value))
+
+            except:
+                self.def_value = None  # Valeur par défaut en cas d'erreur de conversion
+                self.def_entry.clear()
+                self.def_entry.setPlaceholderText("")
+            return self.def_value
+            
+        self.def_entry.editingFinished.connect(lambda: self.update_axes(update_def_value(), self.epsilon))
 
         ord_label = QLabel("Unité en ordonnée")
         display_layout.addWidget(ord_label)
@@ -319,31 +379,37 @@ class MainWindow():
         self.ord_unit = QComboBox()
         self.ord_unit.addItems(["Profondeur", "Temps", "Samples"])
         self.ord_unit.setCurrentText("Profondeur")
-        self.ord_unit.currentTextChanged.connect(lambda: self.update_axes(self.epsilon))
+        self.ord_unit.currentTextChanged.connect(lambda: self.update_axes(self.def_value, self.epsilon))
         display_layout.addWidget(self.ord_unit)
 
+        
         epsilon_layout = QHBoxLayout()
         display_layout.addLayout(epsilon_layout)
 
-        epsilon_label = QLabel("\u03B5 (permitivité):")
-        epsilon_label.setFont(QFont("Arial", 12))  # Use QFont to set the font
-        epsilon_layout.addWidget(epsilon_label)
+        self.epsilon_label = QLabel("\u03B5 (permitivité):")
+        self.epsilon_label.setFont(QFont("Arial", 12))  # Use QFont to set the font
+        epsilon_layout.addWidget(self.epsilon_label)
 
-        epsilon_entry = QLineEdit()
-        epsilon_layout.addWidget(epsilon_entry)
+        self.epsilon_entry = QLineEdit()
+        self.epsilon_entry.setPlaceholderText(str(self.epsilon))
+        epsilon_layout.addWidget(self.epsilon_entry)
 
         def update_epsilon_value():
             try:
-                self.epsilon = float(epsilon_entry.text())
+                self.reset_style(self.epsilon_entry)
+                self.epsilon = float(self.epsilon_entry.text())
                 if(self.epsilon <= 0.):
                     self.epsilon = 6.
-                    print("La permitivité ne peut être inférieure ou égale 0 !")
+                    self.QLineError(self.epsilon_entry,"Erreur: \u03B5 > 0")
+                else:
+                    self.epsilon_entry.setPlaceholderText(str(self.epsilon))
             except:
                 self.epsilon = 6.
-                print("Aucune valeur de epsilon a été définie")
+                self.epsilon_entry.clear()
+                self.epsilon_entry.setPlaceholderText(str(self.epsilon))
             return self.epsilon
         
-        epsilon_entry.editingFinished.connect(lambda: self.update_axes(update_epsilon_value()))
+        self.epsilon_entry.editingFinished.connect(lambda: self.update_axes(self.def_value, update_epsilon_value()))
 
         # Troisième bloc: Outils
         tool_frame = QFrame()
@@ -355,9 +421,11 @@ class MainWindow():
         notebook = QTabWidget()
         tool_layout.addWidget(notebook)
 
-        # Premier onglet: Gains/Filtres
+        # Premier onglet: Gains/Découpage
+
+        ######### Gain #########
         gain_wid_ntb = QWidget()
-        notebook.addTab(gain_wid_ntb, "Gains/Outils")
+        notebook.addTab(gain_wid_ntb, "Gains/Découpage")
 
         gain_layout = QVBoxLayout(gain_wid_ntb)
         gain_layout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
@@ -383,15 +451,24 @@ class MainWindow():
         label_layout.addWidget(gain_const_label)
 
         self.gain_const_entry = QLineEdit()
+        self.gain_const_entry.setPlaceholderText(str(self.gain_const_value))
         entry_layout.addWidget(self.gain_const_entry)
 
         def update_gain_const_value():
             try:
-                gain_const_value = float(self.gain_const_entry.text())
-                if(gain_const_value >= 0.):
-                    self.gain_const_value = gain_const_value
+                self.reset_style(self.gain_const_entry)
+                self.gain_const_value = float(self.gain_const_entry.text())
+                if(self.gain_const_value < 1.):
+                    self.QLineError(self.gain_const_entry,"Erreur: gc >= 1")
+                    self.gain_const_value = 1.  # Valeur par défaut en cas d'erreur de conversion
+
+                else:
+                    self.gain_const_entry.setPlaceholderText(str(self.gain_const_value))
+
             except:
                 self.gain_const_value = 1.  # Valeur par défaut en cas d'erreur de conversion
+                self.gain_const_entry.clear()
+                self.gain_const_entry.setPlaceholderText(str(self.gain_const_value))
             return self.gain_const_value
 
         self.gain_const_entry.editingFinished.connect(lambda: self.update_img(self.t0_lin_value,self.t0_exp_value, update_gain_const_value(), self.gain_lin_value, self.gain_exp_value, self.cb_value, self.ce_value, self.sub_mean_value, self.cutoff_value, self.sampling_value))
@@ -400,307 +477,119 @@ class MainWindow():
         label_layout.addWidget(gain_lin_label)
 
         self.gain_lin_entry = QLineEdit()
+        self.gain_lin_entry.setPlaceholderText(str(self.gain_lin_value))
         entry_layout.addWidget(self.gain_lin_entry)
 
         self.t0_lin_label = QLabel("t0 Profondeur")
         label_layout.addWidget(self.t0_lin_label)
 
         self.t0_lin_entry = QLineEdit()
+        self.t0_lin_entry.setPlaceholderText(str(self.t0_lin_value))
         entry_layout.addWidget(self.t0_lin_entry)
 
         def update_gain_lin_value():
             try:
-                gain_lin_entry_value = self.gain_lin_entry.text()
+                self.reset_style(self.gain_lin_entry)
+                self.gain_lin_value = float(self.gain_lin_entry.text())
+
+                if(self.gain_lin_value < 0.):
+                        self.gain_lin_value = 0.
+                        self.QLineError(self.gain_lin_entry,"Erreur: gl >=0")
+                else:
+                    self.gain_lin_entry.setPlaceholderText(str(self.gain_lin_value))
+
+            except:
+                self.gain_lin_value = 0.
+                self.gain_lin_entry.setPlaceholderText(str(self.gain_lin_value))
+                self.gain_lin_entry.clear()
+            return self.gain_lin_value
+            
+        def update_t0_lin_value():
+            try:
+                self.reset_style(self.t0_lin_entry)
                 t0_lin_entry_value = self.t0_lin_entry.text()
                 n_samp = self.feature[1]
                 t_max = self.feature[3]
                 p_max = (t_max * 10.**(-9)) * (cste_global["c_lum"] / sqrt(self.epsilon)) / 2
 
                 yindex = self.Yunit.index(self.ord_unit.currentText())
-                
                 L_mult = [p_max / n_samp, t_max / n_samp, 1]
-                if(gain_lin_entry_value.isdigit() or gain_lin_entry_value.find(".") != -1):
-                    if(t0_lin_entry_value.isdigit() or t0_lin_entry_value.find(".") != -1):
-                        if((float(t0_lin_entry_value) / L_mult[yindex]) >= 0. and (float(t0_lin_entry_value) / L_mult[yindex]) <= self.ce_value-self.cb_value):
-                            self.t0_lin_value = int(float(t0_lin_entry_value) / L_mult[yindex])
-                            self.gain_lin_value = float(gain_lin_entry_value)
-                        else:
-                            # Efface le contenu actuel de la zone de texte
-                            self.t0_lin_entry.clear()
-                            # Insère le message d'erreur
-                            self.t0_lin_entry.insert("Erreur")
 
-                            self.t0_lin_value = 0
-                            self.gain_lin_value = float(gain_lin_entry_value)
-
-                    else:
-                        self.t0_lin_value = 0
-                        self.gain_lin_value = float(gain_lin_entry_value)
-
-                        
+                if(float(t0_lin_entry_value) / L_mult[yindex] >= 0. and float(t0_lin_entry_value) / L_mult[yindex] <= self.ce_value-self.cb_value):
+                    self.t0_lin_value = int(float(t0_lin_entry_value) / L_mult[yindex])
+                    self.t0_lin_entry.setPlaceholderText(str(t0_lin_entry_value))
                 else:
-                    if(t0_lin_entry_value.isdigit() or t0_lin_entry_value.find(".") != -1):
-                        if(float(t0_lin_entry_value) / L_mult[yindex] >= 0. and float(t0_lin_entry_value) / L_mult[yindex] <= self.ce_value-self.cb_value):
-                            self.t0_lin_value = int(float(t0_lin_entry_value) / L_mult[yindex])
-                            self.gain_lin_value = 0.
-                        else:
-                            # Efface le contenu actuel de la zone de texte
-                            self.t0_lin_entry.clear()
-                            # Insère le message d'erreur
-                            self.t0_lin_entry.insert("Erreur")
-
-                            self.t0_lin_value = 0
-                            self.gain_lin_value = 0.
-
-                    else:
-                        self.t0_lin_value = 0
-                        self.gain_lin_value = 0.
-
+                    self.QLineError(self.t0_lin_entry,"Erreur: t0 hors intervalle")
+                    self.t0_lin_value = 0
             except:
-                traceback.print_exc()
-            return self.gain_lin_value, self.t0_lin_value
+                self.t0_lin_value = 0
+                self.t0_lin_entry.setPlaceholderText(str(self.t0_lin_value))
+                self.t0_lin_entry.clear()
+            return self.t0_lin_value
 
-        self.gain_lin_entry.editingFinished.connect(lambda: self.update_img(update_gain_lin_value()[1],self.t0_exp_value, self.gain_const_value, update_gain_lin_value()[0], self.gain_exp_value, self.cb_value, self.ce_value, self.sub_mean_value, self.cutoff_value, self.sampling_value))
-        self.t0_lin_entry.editingFinished.connect(lambda: self.update_img(update_gain_lin_value()[1],self.t0_exp_value, self.gain_const_value, update_gain_lin_value()[0], self.gain_exp_value, self.cb_value, self.ce_value, self.sub_mean_value, self.cutoff_value, self.sampling_value))
+        self.gain_lin_entry.editingFinished.connect(lambda: self.update_img(self.t0_lin_value,self.t0_exp_value, self.gain_const_value, update_gain_lin_value(), self.gain_exp_value, self.cb_value, self.ce_value, self.sub_mean_value, self.cutoff_value, self.sampling_value))
+        self.t0_lin_entry.editingFinished.connect(lambda: self.update_img(update_t0_lin_value(),self.t0_exp_value, self.gain_const_value, self.gain_lin_value, self.gain_exp_value, self.cb_value, self.ce_value, self.sub_mean_value, self.cutoff_value, self.sampling_value))
 
         gain_exp_label = QLabel("Gain exponentiel") #<br><span style='font-size:6pt'>Formule: a*e^(b(x-t0))</span></br><br><span style='font-size:6pt'>b = ln(a)/75</span></br>
         label_layout.addWidget(gain_exp_label)
 
         self.gain_exp_entry = QLineEdit()
+        self.gain_exp_entry.setPlaceholderText(str(self.gain_exp_value))
         entry_layout.addWidget(self.gain_exp_entry)
 
         self.t0_exp_label = QLabel("t0 Profondeur")
         label_layout.addWidget(self.t0_exp_label)
 
         self.t0_exp_entry = QLineEdit()
+        self.t0_exp_entry.setPlaceholderText(str(self.t0_exp_value))
         entry_layout.addWidget(self.t0_exp_entry)
 
         def update_gain_exp_value():
             try:
-                gain_exp_entry_value = self.gain_exp_entry.text()
+                self.reset_style(self.gain_exp_entry)
+                self.gain_exp_value = float(self.gain_exp_entry.text())
+
+                if(self.gain_exp_value < 0.):
+                        self.gain_exp_value = 0.
+                        self.QLineError(self.gain_exp_entry,"Erreur: ge >=0")
+                else:
+                    self.gain_exp_entry.setPlaceholderText(str(self.gain_exp_value))
+
+            except:
+                self.gain_exp_value = 0.
+                self.gain_exp_entry.setPlaceholderText(str(self.gain_exp_value))
+                self.gain_exp_entry.clear()
+            return self.gain_exp_value
+            
+        def update_t0_exp_value():
+            try:
+                self.reset_style(self.t0_exp_entry)
                 t0_exp_entry_value = self.t0_exp_entry.text()
                 n_samp = self.feature[1]
                 t_max = self.feature[3]
                 p_max = (t_max * 10.**(-9)) * (cste_global["c_lum"] / sqrt(self.epsilon)) / 2
 
                 yindex = self.Yunit.index(self.ord_unit.currentText())
-
                 L_mult = [p_max / n_samp, t_max / n_samp, 1]
-                if(gain_exp_entry_value.isdigit() or gain_exp_entry_value.find(".") != -1):
-                    if(t0_exp_entry_value.isdigit() or t0_exp_entry_value.find(".") != -1):
-                        if(float(t0_exp_entry_value) / L_mult[yindex] >= 0. and float(t0_exp_entry_value) / L_mult[yindex] <= self.ce_value-self.cb_value):
-                            self.t0_exp_value = int(float(t0_exp_entry_value) / L_mult[yindex])
-                            self.gain_exp_value = float(gain_exp_entry_value)
 
-                        else:
-                            # Efface le contenu actuel de la zone de texte
-                            self.t0_exp_entry.clear()
-                            # Insère le message d'erreur
-                            self.t0_exp_entry.insert("Erreur") 
-
-                            self.t0_exp_value = 0
-                            self.gain_exp_value = float(gain_exp_entry_value)
-
-                    else:
-                        self.t0_exp_value = 0
-                        self.gain_exp_value = float(gain_exp_entry_value)
-                        
+                if(float(t0_exp_entry_value) / L_mult[yindex] >= 0. and float(t0_exp_entry_value) / L_mult[yindex] <= self.ce_value-self.cb_value):
+                    self.t0_exp_value = int(float(t0_exp_entry_value) / L_mult[yindex])
+                    self.t0_exp_entry.setPlaceholderText(str(t0_exp_entry_value))
                 else:
-                    if(t0_exp_entry_value.isdigit() or t0_exp_entry_value.find(".") != -1):
-                        if(float(t0_exp_entry_value) >= 0. and float(t0_exp_entry_value) <= self.ce_value-self.cb_value):
-                            self.t0_exp_value = int(float(t0_exp_entry_value) / L_mult[yindex])
-                            self.gain_exp_value = 0.
-
-                        else:
-                            # Efface le contenu actuel de la zone de texte
-                            self.t0_exp_entry.clear() 
-                            # Insère le message d'erreur
-                            self.t0_exp_entry.insert("Erreur t0") 
-
-                            self.t0_exp_value = 0. 
-                            self.gain_exp_value = 0.
-
-                    else:
-                        self.t0_exp_value = 0
-                        self.gain_exp_value = 0.
-            except ValueError:
-                traceback.print_exc()
-            return self.gain_exp_value, self.t0_exp_value
-
-        self.gain_exp_entry.editingFinished.connect(lambda: self.update_img(self.t0_lin_value, update_gain_exp_value()[1], self.gain_const_value, self.gain_lin_value, update_gain_exp_value()[0], self.cb_value, self.ce_value, self.sub_mean_value, self.cutoff_value, self.sampling_value))
-        self.t0_exp_entry.editingFinished.connect(lambda: self.update_img(self.t0_lin_value,update_gain_exp_value()[1], self.gain_const_value, self.gain_lin_value, update_gain_exp_value()[0], self.cb_value, self.ce_value, self.sub_mean_value, self.cutoff_value, self.sampling_value))
-
-        tools_layout = QVBoxLayout()
-        gain_layout.addLayout(tools_layout)
-
-        tools_title_layout = QHBoxLayout()
-        tools_title_layout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
-        tools_layout.addLayout(tools_title_layout)
-
-        tools_title = QLabel("Outils")
-        tools_title.setFont(QFont("Arial", 16, QFont.Weight.Bold))
-        tools_title_layout.addWidget(tools_title)
-
-        self.inv_button = QPushButton("Inversement désactivé")
-        self.inv_button.clicked.connect(self.inv_solo)
-        tools_layout.addWidget(self.inv_button)
-
-        self.eq_button = QPushButton("Égalisation désactivée")
-        self.eq_button.clicked.connect(self.equalization)
-        tools_layout.addWidget(self.eq_button)
-
-        def_layout = QHBoxLayout()
-        gain_layout.addLayout(def_layout)
-
-        def_label = QLabel("Définir la Distance:")
-        def_layout.addWidget(def_label)
-
-        self.def_entry = QLineEdit()
-        def_layout.addWidget(self.def_entry)
-
-        self.def_entry.editingFinished.connect(lambda: self.update_axes(self.epsilon))
-
-        pointer_layout = QHBoxLayout()
-        gain_layout.addLayout(pointer_layout)
-
-        pointer_label = QLabel("Pointeur:")
-        pointer_layout.addWidget(pointer_label)
-
-        data_pointer_layout = QVBoxLayout()
-        pointer_layout.addLayout(data_pointer_layout)
-
-        self.xpointer_label = QLabel()
-        self.ypointer_label = QLabel()
-        data_pointer_layout.addWidget(self.xpointer_label)
-        data_pointer_layout.addWidget(self.ypointer_label)
-
-        # Second onglet
-        fc_wid_ntb = QWidget()
-        notebook.addTab(fc_wid_ntb, "Filtres/Découpage")
-
-        fc_layout = QVBoxLayout(fc_wid_ntb)
-        fc_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-
-        title_fc_layout = QHBoxLayout()
-        fc_layout.addLayout(title_fc_layout)
-        title_fc_layout.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-
-        filter_title_label = QLabel("Filtres")
-        filter_title_label.setFont(QFont("Arial", 16, QFont.Weight.Bold))  # Use QFont to set the font
-        title_fc_layout.addWidget(filter_title_label)
-
-        self.dewow_button = QPushButton("Dewow désactivé")
-        self.dewow_button.clicked.connect(self.dewow_butt)
-        fc_layout.addWidget(self.dewow_button)
-
-        under_fc_layout = QHBoxLayout()
-        fc_layout.addLayout(under_fc_layout)
-
-        ufc_label_layout = QVBoxLayout()
-        under_fc_layout.addLayout(ufc_label_layout)
-
-        ufc_entry_layout = QVBoxLayout()
-        under_fc_layout.addLayout(ufc_entry_layout)
-
-        self.sub_mean_label = QLabel("Traces moyenne (en m)")
-        ufc_label_layout.addWidget(self.sub_mean_label)
-
-        self.sub_mean_entry = QLineEdit()
-        ufc_entry_layout.addWidget(self.sub_mean_entry)
-
-        def update_sub_mean():
-            try:
-                if(self.sub_mean_entry.text().isdigit() or self.sub_mean_entry.text().find(".") != -1):
-                    n_tr = self.feature[0]
-                    if(self.def_entry.text() != ''):
-                        d_max = float(self.def_entry.text())
-                    else:
-                        d_max = self.feature[2]
-                    step_time_acq = self.feature[5]
-                    xindex = self.Xunit.index(self.abs_unit.currentText())
-
-                    L_mult = [d_max / n_tr, step_time_acq, 1]
-                    if(int(float(self.sub_mean_entry.text()) / L_mult[xindex]) >= 0. and int(float(self.sub_mean_entry.text()) / L_mult[xindex]) <= n_tr):
-                        self.sub_mean_value = int(float(self.sub_mean_entry.text()) / L_mult[xindex])
-                    else:
-                        self.sub_mean_value = None
-                        self.sub_mean_entry.clear()
-                        self.sub_mean_entry.insert("Erreur")
-                else:
-                    self.sub_mean_value = None
-                    self.sub_mean_entry.clear()
-                return self.sub_mean_value
+                    self.QLineError(self.t0_exp_entry,"Erreur: t0 hors intervalle")
+                    self.t0_exp_value = 0
             except:
-                print("Erreur Trace moyenne:")
-                self.sub_mean_value = None
-                self.sub_mean_entry.clear()
-                self.sub_mean_entry.insert("Erreur")
-                traceback.print_exc()
-                return None
+                self.t0_exp_value = 0
+                self.t0_exp_entry.setPlaceholderText(str(self.t0_exp_value))
+                self.t0_exp_entry.clear()
+            return self.t0_exp_value
 
-        self.sub_mean_entry.editingFinished.connect(lambda: self.update_img(self.t0_lin_value,self.t0_exp_value, self.gain_const_value, self.gain_lin_value, self.gain_exp_value, self.cb_value, self.ce_value, update_sub_mean(), self.cutoff_value, self.sampling_value))
+        self.gain_exp_entry.editingFinished.connect(lambda: self.update_img(self.t0_lin_value, self.t0_exp_value, self.gain_const_value, self.gain_lin_value, update_gain_exp_value(), self.cb_value, self.ce_value, self.sub_mean_value, self.cutoff_value, self.sampling_value))
+        self.t0_exp_entry.editingFinished.connect(lambda: self.update_img(self.t0_lin_value,update_t0_exp_value(), self.gain_const_value, self.gain_lin_value, self.gain_exp_value, self.cb_value, self.ce_value, self.sub_mean_value, self.cutoff_value, self.sampling_value))
 
-        low_pass_layout = QVBoxLayout()
-        fc_layout.addLayout(low_pass_layout)
-
-        low_pass_title_fc_layout = QHBoxLayout()
-        low_pass_title_fc_layout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
-        low_pass_layout.addLayout(low_pass_title_fc_layout)
-        
-        low_pass_underlayout = QHBoxLayout()
-        low_pass_layout.addLayout(low_pass_underlayout)
-
-        low_pass_label_layout = QVBoxLayout()
-        low_pass_underlayout.addLayout(low_pass_label_layout)
-
-        low_pass_entry_layout = QVBoxLayout()
-        low_pass_underlayout.addLayout(low_pass_entry_layout)
-
-        low_pass_title = QLabel("Passe bas")
-        low_pass_title.setFont(QFont("Arial", 12, QFont.Weight.Bold))
-        low_pass_title_fc_layout.addWidget(low_pass_title)
-
-        cutoff_label =  QLabel("Fr coupure")
-        low_pass_label_layout.addWidget(cutoff_label)
-
-        self.cutoff_entry = QLineEdit()
-        low_pass_entry_layout.addWidget(self.cutoff_entry)
-
-        sampling_label =  QLabel("Fr échantillonage")
-        low_pass_label_layout.addWidget(sampling_label)
-
-        self.sampling_entry = QLineEdit()
-        low_pass_entry_layout.addWidget(self.sampling_entry)
-
-        def update_low_pass():
-            try:
-                if((self.cutoff_entry.text().isdigit() or self.cutoff_entry.text().find(".") != -1) and (self.sampling_entry.text().isdigit() or self.sampling_entry.text().find(".") != -1)):
-                        cutoff_value = float(self.cutoff_entry.text())
-                        sampling_value = float(self.sampling_entry.text())
-                        if(cutoff_value >= 0 and sampling_value >= 0):
-                            self.cutoff_value = cutoff_value
-                            self.sampling_value = sampling_value
-                        else:
-                            self.cutoff_entry.clear()
-                            self.cutoff_entry.insert("Erreur")
-
-                            self.sampling_entry.clear()
-                            self.sampling_entry.insert("Erreur")
-                else:
-                    self.cutoff_value = None
-                    self.sampling_value = None
-
-                return self.cutoff_value, self.sampling_value
-            except:
-                print("Erreur Trace Moyenne:")
-                traceback.print_exc()
-                return None
-
-        self.cutoff_entry.editingFinished.connect(lambda: self.update_img(self.t0_lin_value,self.t0_exp_value, self.gain_const_value, self.gain_lin_value, self.gain_exp_value, self.cb_value, self.ce_value, self.sub_mean_value, update_low_pass()[0], update_low_pass()[1]))
-        self.sampling_entry.editingFinished.connect(lambda: self.update_img(self.t0_lin_value,self.t0_exp_value, self.gain_const_value, self.gain_lin_value, self.gain_exp_value, self.cb_value, self.ce_value, self.sub_mean_value, update_low_pass()[0], update_low_pass()[1]))
-
+        ######### Découpage #########
         cut_layout = QVBoxLayout()
-        fc_layout.addLayout(cut_layout)
+        gain_layout.addLayout(cut_layout)
 
         cut_title_fc_layout = QHBoxLayout()
         cut_title_fc_layout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
@@ -731,8 +620,9 @@ class MainWindow():
         self.ce_entry = QLineEdit()
         cut_entry_layout.addWidget(self.ce_entry)
 
-        def update_cut_value():
+        def update_cb_value():
             try:
+                self.reset_style(self.cb_entry)
                 n_samp = self.feature[1]
                 t_max = self.feature[3]
                 p_max = (t_max * 10.**(-9)) * (cste_global["c_lum"] / sqrt(self.epsilon)) / 2
@@ -740,52 +630,291 @@ class MainWindow():
                 yindex = self.Yunit.index(self.ord_unit.currentText())
 
                 L_mult = [p_max / n_samp, t_max / n_samp, 1]
-                L_max = [p_max, t_max, n_samp]
                 if(self.cb_entry.text() != ''):
-                    ysca1 = float(self.cb_entry.text())
-                    if(ysca1 >= 0.):
-                        if(self.ord_unit.currentText() == "Profondeur"):
-                            self.cb_value = ysca1 / L_mult[yindex]
+                    cb = float(self.cb_entry.text())
+                    if(cb < 0.):
+                        self.QLineError(self.cb_entry, "Erreur: y1 < 0")
+                        self.cb_value = 0.
+                    else:
+                        if(floor(cb / L_mult[yindex]) <= self.ce_value):
+                            if(self.ord_unit.currentText() == "Profondeur"):
+                                self.cb_value = cb / L_mult[yindex]
+                            else:
+                                self.cb_value = floor(cb / L_mult[yindex])
+                            self.cb_entry.setPlaceholderText(str(cb))
                         else:
-                            self.cb_value = floor(ysca1 / L_mult[yindex])
+                            self.cb_value = 0.
+                            self.QLineError(self.cb_entry, "Erreur: y1 > y2")
                 else:
                     self.cb_value = 0.
-                if(self.ce_entry.text() != ''):
-                    ysca2 = float(self.ce_entry.text())
-                    if(ysca2 <= L_max[yindex]):
-                        if(self.ord_unit.currentText() == "Profondeur"):
-                            self.ce_value = ysca2 / L_mult[yindex]
-                        else:
-                            self.ce_value = floor(ysca2 / L_mult[yindex])
-                else:
-                    if(self.ord_unit.currentText() == "Profondeur"):
-                        self.ce_value = L_max[yindex] / L_mult[yindex]
-                    else:
-                        self.ce_value = floor(L_max[yindex] / L_mult[yindex])
+                    self.cb_entry.setPlaceholderText(str(self.cb_value))
             except:
-                print(f"Erreur dans le découpage:")
-                traceback.print_exc()
-            return self.cb_value, self.ce_value
+                self.cb_value = 0
+                self.cb_entry.setPlaceholderText(str(self.cb_value))
+                self.cb_entry.clear()
+            return self.cb_value
 
-        self.cb_entry.editingFinished.connect(lambda: self.update_img(self.t0_lin_value, self.t0_exp_value, self.gain_const_value, self.gain_lin_value, self.gain_exp_value, update_cut_value()[0], update_cut_value()[1], self.sub_mean_value, self.cutoff_value, self.sampling_value))
-        self.ce_entry.editingFinished.connect(lambda: self.update_img(self.t0_lin_value, self.t0_exp_value, self.gain_const_value, self.gain_lin_value, self.gain_exp_value, update_cut_value()[0], update_cut_value()[1], self.sub_mean_value, self.cutoff_value, self.sampling_value))
+        def update_ce_value():
+            try:
+                self.reset_style(self.ce_entry)
+                n_samp = self.feature[1]
+                t_max = self.feature[3]
+                p_max = (t_max * 10.**(-9)) * (cste_global["c_lum"] / sqrt(self.epsilon)) / 2
 
+                yindex = self.Yunit.index(self.ord_unit.currentText())
+
+                L_mult = [p_max / n_samp, t_max / n_samp, 1]
+                L_ymax = [p_max, t_max, n_samp]
+                if(self.ce_entry.text() != ''):
+                    ce = float(self.ce_entry.text())
+                    if(ce / L_mult[yindex] < self.cb_value):
+                        self.QLineError(self.ce_entry, "Erreur: y2 < y1")
+                        self.ce_value = L_ymax[yindex] / L_mult[yindex]
+                    else:
+                        if(ce <= L_ymax[yindex]):
+                            if(self.ord_unit.currentText() == "Profondeur"):
+                                self.ce_value = ce / L_mult[yindex]
+                            else:
+                                self.ce_value = floor(ce / L_mult[yindex])
+                            self.ce_entry.setPlaceholderText(str(ce))
+                        else:
+                            self.ce_value = L_ymax[yindex] / L_mult[yindex]
+                            self.QLineError(self.ce_entry, "Erreur: y2 > max")          
+                else:
+                    self.ce_value = L_ymax[yindex] / L_mult[yindex]
+                    self.ce_entry.setPlaceholderText(str(round(L_ymax[yindex],2)))
+            except:
+                self.ce_value = L_ymax[yindex] / L_mult[yindex]
+                self.ce_entry.setPlaceholderText(str(round(L_ymax[yindex],2)))
+                self.ce_entry.clear()
+            return self.ce_value
+
+        self.cb_entry.editingFinished.connect(lambda: self.update_img(self.t0_lin_value, self.t0_exp_value, self.gain_const_value, self.gain_lin_value, self.gain_exp_value, update_cb_value(), self.ce_value, self.sub_mean_value, self.cutoff_value, self.sampling_value))
+        self.ce_entry.editingFinished.connect(lambda: self.update_img(self.t0_lin_value, self.t0_exp_value, self.gain_const_value, self.gain_lin_value, self.gain_exp_value, self.cb_value, update_ce_value(), self.sub_mean_value, self.cutoff_value, self.sampling_value))
+
+        # Second onglet: Filtres/Outils
+
+        ######### Filtres #########
+        ft_wid_ntb = QWidget()
+        notebook.addTab(ft_wid_ntb, "Filtres/Outils")
+
+        ft_layout = QVBoxLayout(ft_wid_ntb)
+        ft_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+
+        title_ft_layout = QHBoxLayout()
+        ft_layout.addLayout(title_ft_layout)
+        title_ft_layout.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+
+        filter_title_label = QLabel("Filtres")
+        filter_title_label.setFont(QFont("Arial", 16, QFont.Weight.Bold))  # Use QFont to set the font
+        title_ft_layout.addWidget(filter_title_label)
+
+        self.dewow_button = QPushButton("Dewow")
+        self.dewow_button.clicked.connect(self.dewow_butt)
+        ft_layout.addWidget(self.dewow_button)
+
+        under_ft_layout = QHBoxLayout()
+        ft_layout.addLayout(under_ft_layout)
+
+        uft_label_layout = QVBoxLayout()
+        under_ft_layout.addLayout(uft_label_layout)
+
+        uft_entry_layout = QVBoxLayout()
+        under_ft_layout.addLayout(uft_entry_layout)
+
+        self.sub_mean_label = QLabel("Traces moyenne (en m)")
+        uft_label_layout.addWidget(self.sub_mean_label)
+
+        self.sub_mean_entry = QLineEdit()
+        uft_entry_layout.addWidget(self.sub_mean_entry)
+
+        def update_sub_mean():
+            try:
+                self.reset_style(self.sub_mean_entry)
+                sub_mean = float(self.sub_mean_entry.text())
+                n_tr = self.feature[0]
+                if(self.def_value != None):
+                    d_max = self.def_value
+                else:
+                    d_max = self.feature[2]
+                step_time_acq = self.feature[5]
+                xindex = self.Xunit.index(self.abs_unit.currentText())
+
+                L_mult = [d_max / n_tr, step_time_acq, 1]
+                if(sub_mean / L_mult[xindex] >= 0. and sub_mean / L_mult[xindex] <= n_tr):
+                    self.sub_mean_value = int(sub_mean / L_mult[xindex])
+                    self.sub_mean_entry.setPlaceholderText(str(sub_mean))
+                else:
+                    self.sub_mean_value = None
+                    self.QLineError(self.sub_mean_entry,"Erreur: Intervalle")
+            except:
+                self.sub_mean_value = None
+                self.sub_mean_entry.setPlaceholderText("")
+                self.sub_mean_entry.clear()
+            return self.sub_mean_value
+
+        self.sub_mean_entry.editingFinished.connect(lambda: self.update_img(self.t0_lin_value,self.t0_exp_value, self.gain_const_value, self.gain_lin_value, self.gain_exp_value, self.cb_value, self.ce_value, update_sub_mean(), self.cutoff_value, self.sampling_value))
+
+        low_pass_layout = QVBoxLayout()
+        ft_layout.addLayout(low_pass_layout)
+
+        low_pass_title_ft_layout = QHBoxLayout()
+        low_pass_title_ft_layout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
+        low_pass_layout.addLayout(low_pass_title_ft_layout)
+        
+        low_pass_underlayout = QHBoxLayout()
+        low_pass_layout.addLayout(low_pass_underlayout)
+
+        low_pass_label_layout = QVBoxLayout()
+        low_pass_underlayout.addLayout(low_pass_label_layout)
+
+        low_pass_entry_layout = QVBoxLayout()
+        low_pass_underlayout.addLayout(low_pass_entry_layout)
+
+        low_pass_title = QLabel("Passe bas")
+        low_pass_title.setFont(QFont("Arial", 12, QFont.Weight.Bold))
+        low_pass_title_ft_layout.addWidget(low_pass_title)
+
+        cutoff_label =  QLabel("Fr coupure")
+        low_pass_label_layout.addWidget(cutoff_label)
+
+        self.cutoff_entry = QLineEdit()
+        low_pass_entry_layout.addWidget(self.cutoff_entry)
+
+        sampling_label =  QLabel("Fr échantillonage")
+        low_pass_label_layout.addWidget(sampling_label)
+
+        self.sampling_entry = QLineEdit()
+        low_pass_entry_layout.addWidget(self.sampling_entry)
+
+        def update_cut_value():
+            try:
+                self.reset_style(self.cutoff_entry)
+                self.reset_style(self.sampling_entry)
+                cutoff_value = float(self.cutoff_entry.text())
+                sampling_value = float(self.sampling_entry.text())
+
+                if(cutoff_value >= 0 and sampling_value >= 0):
+                    self.cutoff_value = cutoff_value
+                    self.cutoff_entry.setPlaceholderText(str(cutoff_value))
+
+                    self.sampling_value = sampling_value
+                    self.sampling_entry.setPlaceholderText(str(sampling_value))
+                else:
+                    if(cutoff_value < 0):
+                        self.QLineError(self.cutoff_entry, "Erreur: fr > 0")
+                    else:
+                        if(sampling_value < 0):
+                            self.QLineError(self.sampling_entry, "Erreur: fr > 0")
+            except:
+                self.cutoff_value = None
+                self.cutoff_entry.setPlaceholderText("")
+
+                self.sampling_value = None
+                self.sampling_entry.setPlaceholderText("")
+            return self.cutoff_value, self.sampling_value
+
+        self.cutoff_entry.editingFinished.connect(lambda: self.update_img(self.t0_lin_value,self.t0_exp_value, self.gain_const_value, self.gain_lin_value, self.gain_exp_value, self.cb_value, self.ce_value, self.sub_mean_value, update_cut_value()[0], update_cut_value()[1]))
+        self.sampling_entry.editingFinished.connect(lambda: self.update_img(self.t0_lin_value,self.t0_exp_value, self.gain_const_value, self.gain_lin_value, self.gain_exp_value, self.cb_value, self.ce_value, self.sub_mean_value, update_cut_value()[0], update_cut_value()[1]))
+
+        ######### Outils #########
+        tools_layout = QVBoxLayout()
+        ft_layout.addLayout(tools_layout)
+
+        tools_title_layout = QHBoxLayout()
+        tools_title_layout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
+        tools_layout.addLayout(tools_title_layout)
+
+        tools_title = QLabel("Outils")
+        tools_title.setFont(QFont("Arial", 16, QFont.Weight.Bold))
+        tools_title_layout.addWidget(tools_title)
+
+        self.inv_button = QPushButton("Inversement")
+        self.inv_button.clicked.connect(self.inv_solo)
+        tools_layout.addWidget(self.inv_button)
+
+        self.eq_button = QPushButton("Égalisation")
+        self.eq_button.clicked.connect(self.equalization)
+        tools_layout.addWidget(self.eq_button)
+
+        pointer_layout = QHBoxLayout()
+        ft_layout.addLayout(pointer_layout)
+
+        pointer_label = QLabel("Pointeur:")
+        pointer_layout.addWidget(pointer_label)
+
+        data_pointer_layout = QVBoxLayout()
+        pointer_layout.addLayout(data_pointer_layout)
+
+        self.xpointer_label = QLabel()
+        self.ypointer_label = QLabel()
+        data_pointer_layout.addWidget(self.xpointer_label)
+        data_pointer_layout.addWidget(self.ypointer_label)
+
+        ######### Analyse #########
+        analyze_wid_ntb = QWidget()
+        notebook.addTab(analyze_wid_ntb, "Analyse")
+
+        analyze_layout = QVBoxLayout(analyze_wid_ntb)
+        analyze_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+
+        title_mode_layout = QHBoxLayout()
+        analyze_layout.addLayout(title_mode_layout)
+        title_mode_layout.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+
+        mode_label = QLabel("Mode")
+        mode_label.setFont(QFont("Arial", 16, QFont.Weight.Bold))
+        title_mode_layout.addWidget(mode_label)
+        
+        point_mode = QPushButton("Mode Point")
+        point_mode.clicked.connect(lambda: self.QCanvas.set_mode("Point", point_mode))
+        analyze_layout.addWidget(point_mode)
+
+        rectbox_mode = QPushButton("Mode Rectangle")
+        rectbox_mode.clicked.connect(lambda: self.QCanvas.set_mode("Rectangle", rectbox_mode))
+        analyze_layout.addWidget(rectbox_mode)
+
+        class_layout = QHBoxLayout()
+        analyze_layout.addLayout(class_layout)
+
+        default_class_layout = QHBoxLayout()
+        class_layout.addLayout(default_class_layout)
+
+        default_class = QCheckBox()
+        default_class_layout.addWidget(default_class)
+
+        default_label = QLabel("Par défaut")
+        default_class_layout.addWidget(default_label)
+
+        self.class_choice = QComboBox()
+        self.class_choice.addItems(["", "Anomalie franche", "Anomalie hétérogène", "Réseaux", "Autres"])
+        class_layout.addWidget(self.class_choice)
+
+        self.shape_list = QListWidget()
+        analyze_layout.addWidget(self.shape_list)
+        self.shape_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.shape_list.customContextMenuRequested.connect(self.QCanvas.del_ele_list)
+
+        ######### Données #########
         title_infos_layout = QVBoxLayout()
-        fc_layout.addLayout(title_infos_layout)
         title_infos_layout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
+        sidebar_layout.addLayout(title_infos_layout)
 
         infos_label = QLabel("Données sur l'image")
-        infos_label.setFont(QFont("Arial", 16, QFont.Weight.Bold))  # Use QFont to set the font
+        infos_label.setFont(QFont("Arial", 16, QFont.Weight.Bold))
         title_infos_layout.addWidget(infos_label)
 
         self.data_xlabel = QLabel()
-        fc_layout.addWidget(self.data_xlabel)
+        self.data_xlabel.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
+        sidebar_layout.addWidget(self.data_xlabel)
 
         self.data_ylabel = QLabel()
-        fc_layout.addWidget(self.data_ylabel)
+        self.data_ylabel.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
+        sidebar_layout.addWidget(self.data_ylabel)
 
         self.ant_radar = QLabel()
-        fc_layout.addWidget(self.ant_radar)
+        self.ant_radar.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
+        sidebar_layout.addWidget(self.ant_radar)
         
         sidebar_layout.addStretch()
 
@@ -794,6 +923,8 @@ class MainWindow():
     Méthode permettant de sélectionner un fichier dans la liste des fichiers.
         """
         try:
+            if(self.selected_file != None):
+                self.QCanvas.export_json()
             self.selected_file = self.listbox_files.selectedItems()[0].text()
             self.file_index = self.listbox_files.currentRow() # Index du fichier sélectionné
             self.file_path = os.path.join(self.selected_folder, self.selected_file)
@@ -808,9 +939,12 @@ class MainWindow():
             L_max = [p_max, t_max, n_samp]
             L_mult = [p_max / n_samp, t_max / n_samp, 1]
 
+            self.cb_entry.setPlaceholderText(str(float(self.cb_value)*L_mult[yindex]))
+
             if(self.cb_entry.text() == ''):
                 if(self.ce_entry.text() == ''):
                     self.ce_value = int(L_max[yindex] / L_mult[yindex])
+                    self.ce_entry.setPlaceholderText(str(round(L_max[yindex],2)))
 
             self.max_tr = self.max_list_files()
             self.figure.set_facecolor('white')
@@ -838,16 +972,13 @@ class MainWindow():
     Méthode permettant de filtrer la liste de fichiers en fonction du type de fréquence.
         """
         try:
-            name_freq_list = ["Filtrage désactivé", "Haute Fréquence", "Basse Fréquence"]
-            index = name_freq_list.index(self.filter_button.text()) + 1
-            if(index+1 <= len(name_freq_list)):
-                self.filter_button.setText(name_freq_list[index])
-                self.freq_state = name_freq_list[index]
+            index = self.freq_state.index(self.filter_button.text()) + 1
+            if(index+1 <= len(self.freq_state)):
+                self.filter_button.setText(self.freq_state[index])
                 self.update_files_list()
             else:
                 index = 0
-                self.filter_button.setText(name_freq_list[index])
-                self.freq_state = name_freq_list[index]
+                self.filter_button.setText(self.freq_state[index])
                 self.update_files_list()
         except:
             print(f"Aucun dossier sélectionné, filtrage impossible:")
@@ -875,14 +1006,19 @@ class MainWindow():
     Méthode inversant certains fichiers afin d'avoir une spacialisation correcte (voir contexte de la prise des données par radar).
         """
         try:
-            inv_status = ["Inversement pairs désactivé", "Inversement pairs activé"]
-            index = inv_status.index(self.inv_list_button.text()) + 1
+            inv_status = ["off", "on"]
+            index = inv_status.index(self.inv_list_state) + 1
             if(index+1 <= len(inv_status)):
-                self.inv_list_button.setText(inv_status[index])
+                self.inv_list_state = "on"
+                self.inv_list_button.setStyleSheet("""     
+                QPushButton:active {
+                    background-color: #45a049;}""")
+
                 self.update_img(self.t0_lin_value, self.t0_exp_value, self.gain_const_value, self.gain_lin_value, self.gain_exp_value, self.cb_value, self.ce_value, self.sub_mean_value, self.cutoff_value, self.sampling_value)
             else:
-                index = 0
-                self.inv_list_button.setText(inv_status[index])
+                self.inv_list_state = "off"
+                self.inv_list_button.setStyleSheet("")
+                
                 self.update_img(self.t0_lin_value, self.t0_exp_value, self.gain_const_value, self.gain_lin_value, self.gain_exp_value, self.cb_value, self.ce_value, self.sub_mean_value, self.cutoff_value, self.sampling_value)
         except:
             print(f"Erreur Inv:")
@@ -893,14 +1029,19 @@ class MainWindow():
     Méthode permettant d'apliquer le filtre dewow à l'aide d'un bouton.
         """
         try:
-            dewow_status = ["Dewow désactivé", "Dewow activé"]
-            index = dewow_status.index(self.dewow_button.text()) + 1
+            dewow_status = ["off", "on"]
+            index = dewow_status.index(self.dewow_state) + 1
             if(index+1 <= len(dewow_status)):
-                self.dewow_button.setText(dewow_status[index])
+                self.dewow_state = "on"
+                self.dewow_button.setStyleSheet("""     
+                QPushButton:active {
+                    background-color: #45a049;}""")
+
                 self.update_img(self.t0_lin_value, self.t0_exp_value, self.gain_const_value, self.gain_lin_value, self.gain_exp_value, self.cb_value, self.ce_value, self.sub_mean_value, self.cutoff_value, self.sampling_value)
             else:
-                index = 0
-                self.dewow_button.setText(dewow_status[index])
+                self.dewow_state = "off"
+                self.dewow_button.setStyleSheet("")
+                
                 self.update_img(self.t0_lin_value, self.t0_exp_value, self.gain_const_value, self.gain_lin_value, self.gain_exp_value, self.cb_value, self.ce_value, self.sub_mean_value, self.cutoff_value, self.sampling_value)
         except:
             print(f"Erreur Dewow:")
@@ -911,14 +1052,19 @@ class MainWindow():
     Méthode permettant d'inverser votre matrice. L'inversion consiste à inverser les colonnes.
         """
         try:
-            inv_status = ["Inversement désactivé", "Inversement activé"]
-            index = inv_status.index(self.inv_button.text()) + 1
+            inv_status = ["off", "on"]
+            index = inv_status.index(self.inv_state) + 1
             if(index+1 <= len(inv_status)):
-                self.inv_button.setText(inv_status[index])
+                self.inv_state = "on"
+                self.inv_button.setStyleSheet("""     
+                QPushButton:active {
+                    background-color: #45a049;}""")
+                
                 self.update_img(self.t0_lin_value, self.t0_exp_value, self.gain_const_value, self.gain_lin_value, self.gain_exp_value, self.cb_value, self.ce_value, self.sub_mean_value, self.cutoff_value, self.sampling_value)
             else:
-                index = 0
-                self.inv_button.setText(inv_status[index])
+                self.inv_state = "off"
+                self.inv_button.setStyleSheet("")
+
                 self.update_img(self.t0_lin_value, self.t0_exp_value, self.gain_const_value, self.gain_lin_value, self.gain_exp_value, self.cb_value, self.ce_value, self.sub_mean_value, self.cutoff_value, self.sampling_value)
         except:
             print(f"Erreur Inv_solo:")
@@ -929,14 +1075,20 @@ class MainWindow():
     Méthode permettant de mettre toutes les images à la même taille en rajoutant des colonnes.
         """
         try:
-            eq_status = ["Égalisation désactivée", "Égalisation activée"]
-            index = eq_status.index(self.eq_button.text()) + 1
+            eq_status = ["off", "on"]
+            index = eq_status.index(self.equal_state) + 1
             if(index+1 <= len(eq_status)):
-                self.eq_button.setText(eq_status[index])
+                self.def_entry.clear()
+                self.equal_state = "on"
+                self.eq_button.setStyleSheet("""     
+                QPushButton:active {
+                    background-color: #45a049;}""")
+                
                 self.update_img(self.t0_lin_value, self.t0_exp_value, self.gain_const_value, self.gain_lin_value, self.gain_exp_value, self.cb_value, self.ce_value, self.sub_mean_value, self.cutoff_value, self.sampling_value)
             else:
-                index = 0
-                self.eq_button.setText(eq_status[index])
+                self.equal_state = "off"
+                self.eq_button.setStyleSheet("")
+
                 self.update_img(self.t0_lin_value, self.t0_exp_value, self.gain_const_value, self.gain_lin_value, self.gain_exp_value, self.cb_value, self.ce_value, self.sub_mean_value, self.cutoff_value, self.sampling_value)
         except:
             print(f"Erreur Égalisation:")
@@ -944,9 +1096,7 @@ class MainWindow():
 
     def radargram(self):
         layout = QVBoxLayout(self.radargram_widget)
-        self.figure = Figure(figsize=(12, 8), facecolor='none')
-        self.axes = self.figure.add_subplot(1,1,1)
-        self.QCanvas = Canvas(self.figure, self.axes, self)
+
         self.canvas = self.QCanvas.canvas
         layout.addWidget(self.canvas)
 
@@ -960,27 +1110,16 @@ class MainWindow():
 
         self.axes.set_axis_off()
 
-        self.canvas.setStyleSheet("background-color: transparent;")
-        
-        """
-        # Connecter les événements de souris aux fonctions de dessin
-        self.canvas.mpl_connect('button_press_event', self.Canvas_m.on_canvas_clicked)
-        self.canvas.mpl_connect('motion_notify_event', self.Canvas_m.on_canvas_motion)
-        self.canvas.mpl_connect('button_release_event', self.Canvas_m.on_canvas_release)
-        """
-
 
     def update_img(self, t0_lin: int, t0_exp: int, g: float, a_lin: float, a: float, cb: float, ce: float, sub, cutoff: float, sampling: float):
         """
         Méthode qui met à jour notre image avec les différentes applications possibles.
         """
-        start = time.time()
-        self.update_canvas_image()
         try:
             self.img = self.Rdata.rd_img()
             self.img_modified = self.img[int(cb):int(ce), :]
 
-            if(self.dewow_button.text() == "Dewow activé"):
+            if(self.dewow_state == "on"):
                 self.img_modified = self.Rcontroller.dewow_filter(self.img_modified)
 
             if(self.cutoff_entry.text() != '' and self.sampling_entry.text() != ''):
@@ -989,62 +1128,58 @@ class MainWindow():
             if(sub != None):
                 self.img_modified = self.Rcontroller.sub_mean(self.img_modified, sub)
 
-            if(self.inv_list_button.text() == "Inversement pairs activé"):
+            if(self.inv_list_state == "on"):
                 if(self.file_index % 2 != 0):
                     self.img_modified = np.fliplr(self.img_modified)
 
-            if(self.inv_button.text() == "Inversement activé"):
+            if(self.inv_state == "on"):
                 self.img_modified = np.fliplr(self.img_modified)
             
             self.img_modified = self.Rcontroller.apply_total_gain(self.img_modified, t0_lin, t0_exp, g, a_lin, a)
 
-            if(self.eq_button.text() == "Égalisation activée"):
+            if(self.equal_state == "on"):
                 if self.img_modified.shape[1] < self.max_tr:
                     # Ajouter des colonnes supplémentaires
                     additional_cols = self.max_tr - self.img_modified.shape[1]
                     self.img_modified = np.pad(self.img_modified, ((0, 0), (0, additional_cols)), mode='constant')            
 
-            self.update_axes(self.epsilon)
+            self.update_axes(self.def_value, self.epsilon)
 
         except:
             print(f"Erreur dans l'affichage de l'image:")
             traceback.print_exc()
-        end = time.time()
-        #print(f"Durée en seconde de la méthode update_img: {end-start}")
 
-    def update_axes(self, epsilon: float):
+    def update_axes(self, dist: float, epsilon: float):
         """
         Méthode qui met à jour les axes de notre image.
         """
         try:
+            self.update_canvas_image()
+
             n_tr = self.feature[0]
             n_samp = self.feature[1]
-            if(self.def_entry.text() != '' and self.eq_button.text() != "Égalisation activée"):
-                d_max = float(self.def_entry.text())
-            else:
-                d_max = self.feature[2]
-                self.def_entry.clear()
+            d_max = self.feature[2]
             t_max = self.feature[3]
             p_max = (t_max * 10.**(-9)) * (cste_global["c_lum"] / sqrt(epsilon)) / 2
             step_time = self.feature[5]
 
             xindex = self.Xunit.index(self.abs_unit.currentText())
             yindex = self.Yunit.index(self.ord_unit.currentText())
-            L_xmax = [d_max, step_time*n_tr, n_tr]
             L_xmult = [d_max / n_tr, step_time, 1]
             L_ymult = [p_max / n_samp, t_max / n_samp, 1]
+            L_xmax = [d_max, step_time*n_tr, n_tr]
 
             X = []
             Y = []
 
-            if(self.eq_button.text() == "Égalisation activée"):
+            if(self.equal_state == "on"):
                 X = np.linspace(0.,self.max_tr * L_xmult[xindex],10)
                 self.axes.set_xlabel(self.Xlabel[xindex])
                 Y = np.linspace(0, (self.ce_value - self.cb_value) * L_ymult[yindex], 10)
                 self.axes.set_ylabel(self.Ylabel[yindex])
             else:
-                if(self.def_entry.text() != '' and self.abs_unit.currentText() == "Distance"):
-                    X = np.linspace(0.,float(self.def_entry.text()),10)
+                if(dist != None and self.abs_unit.currentText() == "Distance"):
+                    X = np.linspace(0.,dist,10)
                     self.axes.set_xlabel(self.Xlabel[xindex])
                 else:
                     X = np.linspace(0.,L_xmax[xindex],10)
@@ -1054,6 +1189,7 @@ class MainWindow():
 
             # Ajouter un titre à la figure
             self.figure.suptitle(self.selected_file[:-4], y=0.05, va="bottom")
+
             self.axes.imshow(self.img_modified, cmap="gray", interpolation="nearest", aspect="auto", extent = [X[0],X[-1],Y[-1], Y[0]])
             self.update_scale_labels(epsilon)
             self.canvas.draw()
@@ -1071,8 +1207,8 @@ class MainWindow():
         try:
             n_tr = self.feature[0]
             n_samp = self.feature[1]
-            if(self.def_entry.text() != ''):
-                d_max = float(self.def_entry.text())
+            if(self.def_value != None):
+                d_max = self.def_value
             else:
                 d_max = self.feature[2]
             t_max = self.feature[3]
@@ -1085,6 +1221,21 @@ class MainWindow():
             yindex = self.Yunit.index(self.ord_unit.currentText())
             L_xmax = [d_max, step_time*n_tr, n_tr]
             L_ymax = [p_max, t_max, n_samp]
+
+            # Visibilité
+            if(self.abs_unit.currentText() != "Distance"):
+                self.def_label.setVisible(False)
+                self.def_entry.setVisible(False)
+            else:
+                self.def_label.setVisible(True)
+                self.def_entry.setVisible(True)
+
+            if(self.ord_unit.currentText() != "Profondeur"):
+                self.epsilon_label.setVisible(False)
+                self.epsilon_entry.setVisible(False)
+            else:
+                self.epsilon_label.setVisible(True)
+                self.epsilon_entry.setVisible(True)
 
             # Mettre à jour les yscales
             if(self.cb_entry.text() != '' and self.prec_ord != self.ord_unit.currentText()):
@@ -1172,17 +1323,29 @@ class MainWindow():
 
         # Réinitialiser les axes de la figure
         self.axes = self.figure.add_subplot(111)
-        self.QCanvas.axes = self.axes
-        self.axes.set_xlabel("a")
-        self.axes.set_ylabel("b")
+        
+        self.QCanvas.reset_axes(self.axes, self)
+
+        self.axes.set_xlabel("")
+        self.axes.set_ylabel("")
 
         self.axes.xaxis.set_ticks_position('top')
         self.axes.xaxis.set_label_position('top')
         self.axes.yaxis.set_ticks_position('left')
         self.axes.yaxis.set_label_position('left')
 
+    def QLineError(self, ledit, text: str):
+        ledit.clear()
+        ledit.setPlaceholderText(text)
+        ledit.setStyleSheet("""     
+        QLineEdit {
+        background-color: red;
+        color: black;}""")
 
+    def reset_style(self, ledit):
+        ledit.setStyleSheet("")
 
+        
 if __name__ == '__main__':
     software_name = "NablaPy"
     main_window = MainWindow(software_name)
