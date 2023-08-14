@@ -1,6 +1,8 @@
 import matplotlib.pyplot as plt
 
 color = {
+    "": "black",
+    "Acier": "brown", 
     "Anomalie franche": "red",
     "Anomalie hétérogène": "green",
     "Réseaux": "blue", 

@@ -4,7 +4,7 @@
 PYTHON := /chemin/interpréteur/python
 
 # Définir les bibliothèques requises
-LIBRARIES := numpy scipy
+LIBRARIES := numpy scipy json
 
 # Définir les modules externes
 EXTERNAL_MODULES := readgssi matplotlib PyQt6

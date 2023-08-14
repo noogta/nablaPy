@@ -5,7 +5,7 @@ from matplotlib.figure import Figure
 from Forms import Point, Points, Rectangle, Rectangles
 from RadarData import cste_global
 from math import sqrt
-from Export import ExJsonRectangle, ExJsonPoint
+from Export import ExJsonRectangle, ExJsonPoint, ExJsonNone
 
 CURSOR_DEFAULT = Qt.CursorShape.ArrowCursor
 CURSOR_POINT = Qt.CursorShape.PointingHandCursor
@@ -232,20 +232,22 @@ class Canvas:
                     #print(f"Avant:{L_ymax[yindex]}")
                     L_ymax[yindex] = (self.parent.ce_value / n_samp) * L_ymax[yindex]
                     #print(f"Après:{L_ymax[yindex]}")
-
-        for shape in self.shapes:
-            if isinstance(shape,Rectangle):
-                x1, y1, x2, y2 = shape.get_ord_data()
-                x1, x2 = x1 / L_xmax[xindex], x2 / L_xmax[xindex]
-                y1, y2 = y1 / L_ymax[yindex], y2 / L_ymax[yindex]
-                ExJsonRectangle(self.parent.img_modified, self.parent.selected_file[:-4], shape.label, x1, y1, x2, y2)
-            else:
-                if(isinstance(shape, Point)):
-                    x, y = shape.x,shape.y
-                    x = x / L_xmax[xindex]
-                    y = y / L_ymax[yindex]
-                    ExJsonPoint(self.parent.img_modified, self.parent.selected_file[:-4], shape.label, shape.x, shape.y)
-        self.clear_canvas()
+        if(len(self.shapes) != 0):
+            for shape in self.shapes:
+                if isinstance(shape,Rectangle):
+                    x1, y1, x2, y2 = shape.get_ord_data()
+                    x1, x2 = x1 / L_xmax[xindex], x2 / L_xmax[xindex]
+                    y1, y2 = y1 / L_ymax[yindex], y2 / L_ymax[yindex]
+                    ExJsonRectangle(self.parent.img_modified, self.parent.selected_file[:-4], shape.label, x1, y1, x2, y2)
+                else:
+                    if(isinstance(shape, Point)):
+                        x, y = shape.x,shape.y
+                        x = x / L_xmax[xindex]
+                        y = y / L_ymax[yindex]
+                        ExJsonPoint(self.parent.img_modified, self.parent.selected_file[:-4], shape.label, shape.x, shape.y)
+            self.clear_canvas()
+        else:
+            ExJsonNone(self.parent.img_modified, self.parent.selected_file[:-4])
 
     def test_list(self):
         print(f"Taille de la liste QListWidget: {self.parent.shape_list.count()}")

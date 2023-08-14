@@ -68,6 +68,9 @@ class MainWindow():
         self.feature = None
         self.def_value = None
 
+        self.prec_abs = None
+        self.prec_ord = None
+
         self.Xunit = ["Distance", "Temps", "Traces"]
         self.Yunit = ["Profondeur", "Temps", "Samples"]
         self.Xlabel = ["Distance en m", "Temps en s", "Traces"]
@@ -111,6 +114,10 @@ class MainWindow():
         export_action = QAction("Exporter les bbox", self.window)
         export_action.triggered.connect(self.QCanvas.export_json)
         file_menu.addAction(export_action)
+
+        export_none_action = QAction("Exporter les Nones", self.window)
+        export_none_action.triggered.connect(self.export_nones)
+        file_menu.addAction(export_none_action)
 
         quit_action = QAction("Quitter", self.window)
         quit_action.triggered.connect(self.window.close)  # Fermer la fenêtre lorsqu'on clique sur Quitter
@@ -169,7 +176,7 @@ class MainWindow():
 
     def open_folder(self):
         try:
-            self.selected_folder = QFileDialog.getExistingDirectory(self.window, "Ouvrir un dossier", directory="/home/cytech/Mesure/Dourdan/Zone 1")
+            self.selected_folder = QFileDialog.getExistingDirectory(self.window, "Ouvrir un dossier", directory="/data/Documents/GM/Ing2-GMI/Stage/Mesure")
             self.update_files_list()
 
             # Supprimer le contenu des entrées
@@ -288,6 +295,54 @@ class MainWindow():
             print("Erreur lors de la sauvegarde des images.")
             traceback.print_exc()
 
+    def export_nones(self):
+        try:
+            files = [self.listbox_files.item(row).text() for row in range(self.listbox_files.count())]
+            prec_selected_file = self.selected_file
+            for file in files:
+                self.selected_file = file
+                self.Rdata = RadarData(self.selected_folder + "/" + file)
+                self.feature = self.Rdata.get_feature()
+
+                self.update_canvas_image()
+
+                self.img = self.Rdata.rd_img()
+                self.img_modified = self.img[int(self.cb_value):int(self.ce_value), :]
+
+                if(self.dewow_state == "on"):
+                    self.img_modified = self.Rcontroller.dewow_filter(self.img_modified)
+
+                if(self.cutoff_entry.text() != '' and self.sampling_entry.text() != ''):
+                    self.img_modified = self.Rcontroller.low_pass(self.img_modified, self.cutoff_value, self.sampling_value)
+
+                if(self.sub_mean_value != None):
+                    self.img_modified = self.Rcontroller.sub_mean(self.img_modified, self.sub_mean_value)
+
+                if(self.inv_list_state == "on"):
+                    if(files.index(file) % 2 != 0):
+                        self.img_modified = np.fliplr(self.img_modified)
+
+                if(self.inv_state == "on"):
+                    self.img_modified = np.fliplr(self.img_modified)
+
+                self.img_modified = self.Rcontroller.apply_total_gain(self.img_modified, self.t0_lin_value, self.t0_exp_value, self.gain_const_value, self.gain_lin_value, self.gain_exp_value)
+
+                if(self.equal_state == "on"):
+                    if self.img_modified.shape[1] < self.max_tr:
+                        # Ajouter des colonnes supplémentaires
+                        additional_cols = self.max_tr - self.img_modified.shape[1]
+                        self.img_modified = np.pad(self.img_modified, ((0, 0), (0, additional_cols)), mode='constant')            
+
+                self.QCanvas.export_json()
+                # Sauvegarder l'image en format PNG
+            # 
+            self.selected_file = prec_selected_file
+            self.Rdata = RadarData(self.file_path)
+            self.update_img(self.t0_lin_value, self.t0_exp_value, self.gain_const_value, self.gain_lin_value, self.gain_exp_value, self.cb_value, self.ce_value, self.sub_mean_value, self.cutoff_value, self.sampling_value)
+        except:
+            print("Erreur lors de l'exportation des images/bbox.")
+            traceback.print_exc()
+
     def sidebar(self):
         sidebar_layout = QVBoxLayout(self.sidebar_widget)
         sidebar_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
@@ -401,15 +456,12 @@ class MainWindow():
                 if(self.epsilon <= 0.):
                     self.epsilon = 6.
                     self.QLineError(self.epsilon_entry,"Erreur: \u03B5 > 0")
-                else:
-                    self.epsilon_entry.setPlaceholderText(str(self.epsilon))
             except:
                 self.epsilon = 6.
-                self.epsilon_entry.clear()
-                self.epsilon_entry.setPlaceholderText(str(self.epsilon))
             return self.epsilon
         
-        self.epsilon_entry.editingFinished.connect(lambda: self.update_axes(self.def_value, update_epsilon_value()))
+        self.epsilon_entry.editingFinished.connect(update_epsilon_value)
+        self.epsilon_entry.editingFinished.connect(lambda: self.update_img(update_t0_lin_value(), update_t0_exp_value(), update_gain_const_value(), update_gain_lin_value(), update_gain_exp_value(), update_cb_value(), update_ce_value(), update_sub_mean(),update_cut_value()[0],update_cut_value()[1]))
 
         # Troisième bloc: Outils
         tool_frame = QFrame()
@@ -887,7 +939,7 @@ class MainWindow():
         default_class_layout.addWidget(default_label)
 
         self.class_choice = QComboBox()
-        self.class_choice.addItems(["", "Anomalie franche", "Anomalie hétérogène", "Réseaux", "Autres"])
+        self.class_choice.addItems([None, "Acier", "Anomalie franche", "Anomalie hétérogène", "Réseaux", "Autres"])
         class_layout.addWidget(self.class_choice)
 
         self.shape_list = QListWidget()
@@ -922,9 +974,8 @@ class MainWindow():
         """
     Méthode permettant de sélectionner un fichier dans la liste des fichiers.
         """
+        s = time.time()
         try:
-            if(self.selected_file != None):
-                self.QCanvas.export_json()
             self.selected_file = self.listbox_files.selectedItems()[0].text()
             self.file_index = self.listbox_files.currentRow() # Index du fichier sélectionné
             self.file_path = os.path.join(self.selected_folder, self.selected_file)
@@ -949,6 +1000,8 @@ class MainWindow():
             self.max_tr = self.max_list_files()
             self.figure.set_facecolor('white')
             self.update_img(self.t0_lin_value, self.t0_exp_value, self.gain_const_value, self.gain_lin_value, self.gain_exp_value, self.cb_value, self.ce_value, self.sub_mean_value, self.cutoff_value, self.sampling_value)
+            e = time.time()
+            print(f"Temps: {e-s}")
         except:
             print("Erreur Sélection fichier:")
             traceback.print_exc()
@@ -1144,7 +1197,6 @@ class MainWindow():
                     self.img_modified = np.pad(self.img_modified, ((0, 0), (0, additional_cols)), mode='constant')            
 
             self.update_axes(self.def_value, self.epsilon)
-
         except:
             print(f"Erreur dans l'affichage de l'image:")
             traceback.print_exc()
@@ -1192,10 +1244,9 @@ class MainWindow():
 
             self.axes.imshow(self.img_modified, cmap="gray", interpolation="nearest", aspect="auto", extent = [X[0],X[-1],Y[-1], Y[0]])
             self.update_scale_labels(epsilon)
-            self.canvas.draw()
-
             self.prec_abs = self.abs_unit.currentText()
             self.prec_ord = self.ord_unit.currentText()
+            self.canvas.draw()
         except:
             print(f"Erreur axes:")
             traceback.print_exc()
@@ -1238,9 +1289,15 @@ class MainWindow():
                 self.epsilon_entry.setVisible(True)
 
             # Mettre à jour les yscales
-            if(self.cb_entry.text() != '' and self.prec_ord != self.ord_unit.currentText()):
+            if(self.epsilon_entry.text() != ''):
+                self.epsilon_entry.setPlaceholderText(str(self.epsilon))
+                self.epsilon_entry.clear()
+            else:
+                self.epsilon_entry.setPlaceholderText(str(self.epsilon))
+
+            if(self.cb_entry.text() != ''):
                 if(self.ord_unit.currentText() == "Profondeur"):
-                    cb = round((self.cb_value / n_samp) * L_ymax[self.Yunit.index(self.ord_unit.currentText())],1)
+                    cb = round((self.cb_value / n_samp) * L_ymax[self.Yunit.index(self.ord_unit.currentText())],2)
                 else:
                     cb = floor((self.cb_value / n_samp) * L_ymax[self.Yunit.index(self.ord_unit.currentText())])
 
@@ -1248,17 +1305,35 @@ class MainWindow():
                 self.cb_entry.clear()
 
                 self.cb_entry.setText(str(cb))
+                self.cb_entry.setPlaceholderText(str(cb))
+            else:
+                if(self.prec_ord != self.ord_unit.currentText()):
+                    if(self.ord_unit.currentText() == "Profondeur"):
+                        cb = round((self.cb_value / n_samp) * L_ymax[self.Yunit.index(self.ord_unit.currentText())],2)
+                    else:
+                        cb = floor((self.cb_value / n_samp) * L_ymax[self.Yunit.index(self.ord_unit.currentText())])
 
-            if(self.ce_entry.text() != '' and self.prec_ord != self.ord_unit.currentText()):
+                    # Efface le contenu actuel de la zone de texte
+                    self.cb_entry.setPlaceholderText(str(cb))
+
+            if(self.ce_entry.text() != ''):
                 if(self.ord_unit.currentText() == "Profondeur"):
-                    ce = round((self.ce_value / n_samp) * L_ymax[self.Yunit.index(self.ord_unit.currentText())],1)
+                    ce = round((self.ce_value / n_samp) * L_ymax[self.Yunit.index(self.ord_unit.currentText())],2)
                 else:
                     ce = floor((self.ce_value / n_samp) * L_ymax[self.Yunit.index(self.ord_unit.currentText())])
                 
-                # Efface le contenu actuel de la zone de texte
                 self.ce_entry.clear()
+                self.ce_entry.setText(str(ce))
+                self.ce_entry.setPlaceholderText(str(ce))   
+            else:
+                if(self.prec_ord != self.ord_unit.currentText()):
+                    if(self.ord_unit.currentText() == "Profondeur"):
+                        ce = round((self.ce_value / n_samp) * L_ymax[self.Yunit.index(self.ord_unit.currentText())],2)
+                    else:
+                        ce = floor((self.ce_value / n_samp) * L_ymax[self.Yunit.index(self.ord_unit.currentText())])
+                    
+                    self.ce_entry.setPlaceholderText(str(ce))
 
-                self.ce_entry.setText(str(ce))           
 
             # Mettre à jour les t0
             if(self.t0_lin_entry.text() != '' and (self.prec_ord != self.ord_unit.currentText() or self.cb_entry.text() != '')):
@@ -1270,6 +1345,7 @@ class MainWindow():
                 # Efface le contenu actuel de la zone de texte
                 self.t0_lin_entry.clear()
                 self.t0_lin_entry.setText(str(t0_lin_value))
+                self.t0_lin_entry.setPlaceholderText(str(t0_lin_value))
 
             if(self.t0_exp_entry.text() != '' and (self.prec_ord != self.ord_unit.currentText() or self.cb_entry.text() != '')):
                 if(self.ord_unit.currentText() == "Profondeur"):
@@ -1279,8 +1355,8 @@ class MainWindow():
                 
                 # Efface le contenu actuel de la zone de texte
                 self.t0_exp_entry.clear()
-
                 self.t0_exp_entry.setText(str(t0_exp_value))
+                self.t0_exp_entry.setPlaceholderText(str(t0_exp_value))
 
             if(self.sub_mean_entry.text() != ''):
                 if(self.abs_unit.currentText() == "Distance"):
@@ -1290,8 +1366,8 @@ class MainWindow():
 
                 # Efface le contenu actuel de la zone de texte
                 self.sub_mean_entry.clear()
-
                 self.sub_mean_entry.setText(str(sub_mean_value))
+                self.sub_mean_entry.setPlaceholderText(str(sub_mean_value))
 
             # Mettre à jour le texte du label
 
