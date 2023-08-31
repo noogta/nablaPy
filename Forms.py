@@ -1,5 +1,4 @@
 import matplotlib.pyplot as plt
-
 color = {
     "": "black",
     "Acier": "brown", 
@@ -10,18 +9,19 @@ color = {
 }
 
 class Point:
-    def __init__(self, label: str, x: float, y: float):
+    def __init__(self, label: str, x: float, y: float, rel: float):
         self.label = label
         self.x = x
         self.y = y
-        self.create_point()
+        self.create_point(relation=rel)
     
-    def create_point(self):
+    def create_point(self, relation: float):
         if(self.label == ""):
-            self.point = plt.Circle((self.x, self.y), radius=0.075, color='black', alpha = 1)
+            print(relation)
+            self.point = plt.Circle((self.x, self.y), radius=relation, color='black', alpha = 1)
         else:
             if(self.label in color):
-                self.point = plt.Circle((self.x, self.y), radius=0.075, color=color[self.label], alpha = 1)
+                self.point = plt.Circle((self.x, self.y), radius=relation, color=color[self.label], alpha = 1)
 
     def update_point(self, x: float, y: float):
         # Mise à jour des coordonnées
@@ -101,7 +101,7 @@ class Rectangle:
             y2 = self.y2
         return x1, y1, x2, y2
 
-    def temporay_plot(self, axes):
+    def temporary_plot(self, axes):
         axes.draw_artist(self.rectangle)
 
     def plot(self, axes):
@@ -126,3 +126,60 @@ class Rectangles:
         for rectangle in self.rectangles:
             rectangle.rectangle.remove()
         self.rectangles.clear()
+
+class Pointer:
+    def __init__(self, x: None | float, y: None | float, parent):
+        self.x = x
+        self.y = y
+        self.parent = parent
+
+        self.vline = None
+        self.hline = None
+
+    def set(self, x: float, y: float):
+        self.x = x
+        self.y = y
+
+    def instant_pointer_data(self):
+        xindex = self.parent.Xunit.index(self.parent.abs_unit.currentText())
+        yindex = self.parent.Yunit.index(self.parent.ord_unit.currentText())
+        self.parent.xpointer_instant_label.setText("{:.2f} {}".format(self.x, self.parent.xLabel[xindex]))
+        self.parent.ypointer_instant_label.setText("{:.2f} {}".format(self.y, self.parent.yLabel[yindex]))
+
+
+    def plot(self, axes):
+        xindex = self.parent.Xunit.index(self.parent.abs_unit.currentText())
+        yindex = self.parent.Yunit.index(self.parent.ord_unit.currentText())
+        self.parent.xpointer_label.setText("Abscisse: {:.2f} {}".format(self.x, self.parent.xLabel[xindex]))
+        self.parent.ypointer_label.setText("Ordonnée: {:.2f} {}".format(self.y, self.parent.yLabel[yindex]))
+
+        xmin, xmax = self.parent.axes.get_xlim()
+        ymax, ymin =self.parent.axes.get_ylim()
+        if(self.vline != None and self.hline != None):
+            axes.lines.pop()
+            axes.lines.pop()
+
+        xline = [self.x - xmax*0.01, self.x + xmax*0.01]
+        yline = [self.y - ymax*0.01, self.y + ymax*0.01]
+
+        if(yline[0] < ymin):
+            yline[0] = self.y
+        if(yline[1] > ymax):
+            yline[1] = self.y
+        self.vline = axes.plot([self.x, self.x], yline, color='red', linewidth=1)
+
+        if(xline[0] < xmin):
+            xline[0] = self.x
+        if(xline[1] > xmax):
+            xline[1] = self.x
+        self.hline = axes.plot( xline, [self.y, self.y], color='red', linewidth=1)
+
+    def clear(self, axes):
+        if(self != None):
+            if(self.vline != None and self.hline != None):
+                axes.lines.pop()
+                axes.lines.pop()
+                self.vline = None
+                self.hline = None
+            self.parent.xpointer_label.setText("")
+            self.parent.ypointer_label.setText("")

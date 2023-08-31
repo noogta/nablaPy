@@ -145,5 +145,3 @@ class RadarController():
             print("Erreur lors de l'application du filtre:")
             traceback.print_exc()
             return img
-
-    ############################ Mise à jour ############################

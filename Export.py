@@ -2,6 +2,7 @@ import json
 import os
 from PIL import Image
 import numpy as np
+
 class ExJsonNone:
     def __init__(self, img, file_name):
         self.img = img
@@ -26,13 +27,12 @@ class ExJsonNone:
             # Charger les données existantes depuis le fichier
             with open(json_filename, "r") as json_file:
                 existing_data = json.load(json_file)
-            
             # Ajouter les nouvelles données à la liste existante
             existing_data.append(new_data)
         else:
             # Si le fichier n'existe pas, créer une nouvelle liste avec les nouvelles données
             existing_data = [new_data]
-
+        
         # Écrire les données mises à jour dans le fichier JSON
         with open(json_filename, "w") as json_file:
             json.dump(existing_data, json_file, indent=4)
@@ -71,7 +71,7 @@ class ExJsonPoint:
         current_script_path = os.path.abspath(__file__)
         dir = os.path.dirname(current_script_path)
         json_filename = dir+"/dataset/"+str(self.file_name)+".json"
-
+        
         # Vérifier si le fichier JSON existe déjà
         if os.path.exists(json_filename):
             # Charger les données existantes depuis le fichier
@@ -149,5 +149,5 @@ class ExJsonRectangle:
         self.img = (self.img * 255).astype(np.uint8)  # Conversion en uint8
 
         image_pil = Image.fromarray(self.img)
-        image_pil.save(dir+"/dataset/"+str(self.file_name)+".png")
+        image_pil.save(dir+str(self.file_name)+".png")
         print("Données ajoutées avec succès au fichier JSON.")

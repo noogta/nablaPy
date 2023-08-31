@@ -75,7 +75,7 @@ class RadarData:
         """
     Méthode permettant de récupérer les données contenues dans le fichier .rad.
 
-    Return:
+    Returns:
         Retourne les informations suivantes (dans cet ordre):\n
             - trace (int) : nombre de mesures\n
             - samples (int): nombre d'échantillons\n
