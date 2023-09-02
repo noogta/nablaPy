@@ -110,9 +110,13 @@ class RadarData:
                         value_trace = int(value)
                     elif "STOP POSITION" in line:
                         value = line.split(':')[1]
+                        if(',' in value):
+                            value = value.replace(',', '.')
                         value_dist_total = float(value)
                     elif "TIMEWINDOW" in line:
                         value = line.split(':')[1]
+                        if(',' in value):
+                            value = value.replace(',', '.')
                         value_time = float(value)
                     elif "DISTANCE INTERVAL" in line:
                         value = line.split(':')[1]

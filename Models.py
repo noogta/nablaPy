@@ -3,9 +3,16 @@ from keras.utils import img_to_array
 import os
 from PIL import Image
 import numpy as np
-import matplotlib.pyplot as plt
+import platform
 
-os.system("clear")
+# Suppression des lignes générés par L'initialisation de ternsorflow
+my_os = platform.system()
+if(my_os == "Linux" or my_os== "Darwin"):
+    os.system("clear")
+else:
+    if(my_os == "Windows"):
+        os.system("cls")
+
 
 class Models:
     def __init__(self, mainwindow):

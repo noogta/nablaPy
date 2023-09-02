@@ -7,7 +7,7 @@ PYTHON := /chemin/interpréteur/python
 LIBRARIES := numpy scipy json
 
 # Définir les modules externes
-EXTERNAL_MODULES := readgssi matplotlib PyQt6
+EXTERNAL_MODULES := readgssi matplotlib PyQt6 tensorflow keras
 
 # Targets
 all: install_external install_libraries

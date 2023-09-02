@@ -2,6 +2,7 @@ import sys
 import traceback
 import os
 import numpy as np
+import platform
 from RadarController import RadarController
 from RadarData import RadarData, cste_global
 from QCanvas import Canvas
@@ -11,6 +12,13 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QApplication, QMainWindow, QFileDialog, QWidget, QLabel, QVBoxLayout, QHBoxLayout, QFrame, QListWidget, QPushButton, QComboBox, QLineEdit, QTabWidget, QCheckBox
 from PyQt6.QtGui import QAction, QFont
 from matplotlib.figure import Figure
+
+my_os = platform.system()
+if(my_os == "Linux" or my_os== "Darwin"):
+    xSIZE, ySIZE = (1720,900)
+else:
+    if(my_os == "Windows"):
+        xSIZE, ySIZE= (1080,800)
 
 class MainWindow():
     """Cette classe représente la fenêtre principale."""
@@ -28,7 +36,7 @@ class MainWindow():
         
 
         # Définition de la taille de la fenêtre
-        self.window.setGeometry(0, 0, 1720, 900)
+        self.window.setGeometry(0, 0, xSIZE, ySIZE)
 
         # À définir à la fin
         #self.window.setMaximumWidth(QScreen().availableGeometry().width())
@@ -167,7 +175,7 @@ class MainWindow():
         Affiche et paramètre les différents blocs du logiciel.
         """
         # Limites des  dimensions
-        min_height = 850
+        min_height = 650
         min_width_sidebar = 330
         min_width_radargram = 600
 
@@ -206,7 +214,7 @@ class MainWindow():
         """
         try:
             # Dossier sélectionné et mise à jour de la liste des fichiers
-            self.selected_folder = QFileDialog.getExistingDirectory(self.window, "Ouvrir un dossier", directory="/data/Documents/GM/Ing2-GMI/Stage/Mesure/23A.013 - PONT DU JOUANY - NIMES/Mesures/JOUANY1")
+            self.selected_folder = QFileDialog.getExistingDirectory(self.window, "Ouvrir un dossier", directory="/data/Documents/GM/Ing2-GMI/Stage/Mesure")
             self.update_files_list()
 
             # Supprimer le contenu des entrées de découpage
@@ -314,7 +322,7 @@ class MainWindow():
                 self.update_axes(self.def_value, self.epsilon_value)
 
                 # Sauvegarder l'image en format PNG
-                file_save_path = folder_path + "/" + file + ".png"
+                file_save_path = folder_path + "/" + file[:-4] + ".png"
                 self.figure.savefig(file_save_path)
 
             # 
@@ -1248,9 +1256,13 @@ class MainWindow():
         prediction_layout.addWidget(self.class_prediction)
         prediction_layout.addWidget(self.probability_prediction)
 
-        self.position_model_button = QPushButton("Steels Positions")
+        """
+        Modèle (Steels Positions) à développer dans le drive du stagiaire (Fichier: Steels_Detections.ipynb).
+        Ajouter les fonctionnalités par la suite sur le logiciel.
+        """
+        #self.position_model_button = QPushButton("Steels Positions")
         #self.position_model_button.clicked()
-        prediction_layout.addWidget(self.position_model_button)
+        #prediction_layout.addWidget(self.position_model_button)
         
         sidebar_layout.addStretch()
 
