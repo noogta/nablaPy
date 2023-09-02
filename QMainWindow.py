@@ -2,15 +2,22 @@ import sys
 import traceback
 import os
 import numpy as np
+import platform
 from RadarController import RadarController
 from RadarData import RadarData, cste_global
 from QCanvas import Canvas
-from Models import Models
 from math import sqrt, floor, ceil
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QApplication, QMainWindow, QFileDialog, QWidget, QLabel, QVBoxLayout, QHBoxLayout, QFrame, QListWidget, QPushButton, QComboBox, QLineEdit, QTabWidget, QCheckBox
 from PyQt6.QtGui import QAction, QFont
 from matplotlib.figure import Figure
+
+my_os = platform.system()
+if(my_os == "Linux" or my_os== "Darwin"):
+    xSIZE, ySIZE = (1720,900)
+else:
+    if(my_os == "Windows"):
+        xSIZE, ySIZE= (1080,800)
 
 class MainWindow():
     """Cette classe représente la fenêtre principale."""
@@ -28,7 +35,7 @@ class MainWindow():
         
 
         # Définition de la taille de la fenêtre
-        self.window.setGeometry(0, 0, 1720, 900)
+        self.window.setGeometry(0, 0, xSIZE, ySIZE)
 
         # À définir à la fin
         #self.window.setMaximumWidth(QScreen().availableGeometry().width())
@@ -49,7 +56,6 @@ class MainWindow():
         self.figure = Figure(figsize=(12, 8), facecolor='none')
         self.axes = self.figure.add_subplot(1,1,1)
         self.QCanvas = Canvas(self.figure, self.axes, self)
-        self.Models = Models(self)
 
         # Affichage des différents blocs
         self.menu()
@@ -167,7 +173,7 @@ class MainWindow():
         Affiche et paramètre les différents blocs du logiciel.
         """
         # Limites des  dimensions
-        min_height = 850
+        min_height = 650
         min_width_sidebar = 330
         min_width_radargram = 600
 
@@ -206,7 +212,7 @@ class MainWindow():
         """
         try:
             # Dossier sélectionné et mise à jour de la liste des fichiers
-            self.selected_folder = QFileDialog.getExistingDirectory(self.window, "Ouvrir un dossier", directory="/data/Documents/GM/Ing2-GMI/Stage/Mesure/23A.013 - PONT DU JOUANY - NIMES/Mesures/JOUANY1")
+            self.selected_folder = QFileDialog.getExistingDirectory(self.window, "Ouvrir un dossier", directory="/data/Documents/GM/Ing2-GMI/Stage/Mesure")
             self.update_files_list()
 
             # Supprimer le contenu des entrées de découpage
@@ -314,7 +320,7 @@ class MainWindow():
                 self.update_axes(self.def_value, self.epsilon_value)
 
                 # Sauvegarder l'image en format PNG
-                file_save_path = folder_path + "/" + file + ".png"
+                file_save_path = folder_path + "/" + file[:-4] + ".png"
                 self.figure.savefig(file_save_path)
 
             # 
@@ -1223,34 +1229,6 @@ class MainWindow():
         analyze_layout.addWidget(self.shape_list)
         self.shape_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.shape_list.customContextMenuRequested.connect(self.QCanvas.del_element)
-
-        # Quatrième onglet: Prédiction
-        prediction_wid_ntb = QWidget()
-        treatment_notebook.addTab(prediction_wid_ntb, "Prédiction")
-
-        prediction_layout = QVBoxLayout(prediction_wid_ntb)
-        prediction_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-
-        title_prediction_layout = QHBoxLayout()
-        prediction_layout.addLayout(title_prediction_layout)
-        title_prediction_layout.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-
-        models_label = QLabel("Modèles")
-        models_label.setFont(QFont("Arial", 16, QFont.Weight.Bold))
-        title_prediction_layout.addWidget(models_label)
-
-        self.class_model_button = QPushButton("Steel Detection")
-        self.class_model_button.clicked.connect(self.Models.Classification_model)
-        prediction_layout.addWidget(self.class_model_button)
-
-        self.class_prediction = QLabel()
-        self.probability_prediction = QLabel()
-        prediction_layout.addWidget(self.class_prediction)
-        prediction_layout.addWidget(self.probability_prediction)
-
-        self.position_model_button = QPushButton("Steels Positions")
-        #self.position_model_button.clicked()
-        prediction_layout.addWidget(self.position_model_button)
         
         sidebar_layout.addStretch()
 

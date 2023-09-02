@@ -17,7 +17,19 @@ CURSOR_MODIFIED_POINT = Qt.CursorShape.SizeAllCursor
 CURSOR_MODIFIED_POINT_RECTANGLE = Qt.CursorShape.OpenHandCursor
 
 class Canvas:
+    """
+    Cette classe affiche les données radars. Et elle permet de réaliser des figures sur les données radars.
+    """
     def __init__(self, figure: Figure, axes, mainwindow):
+        """
+        Constructeur de la classe Canvas.
+
+        Args:
+            - figure: Objet figure de matplotlib.figure
+            - axes: Axes de la figure.
+            - mainwindow: instance de la classe MainWindow
+        
+        """
         self.canvas = FigureCanvas(figure)
         self.canvas.setStyleSheet("background-color: transparent;")
         self.axes = axes
@@ -37,7 +49,6 @@ class Canvas:
         self.canvas.mpl_connect('button_press_event', self.MousePressEvent)
         self.canvas.mpl_connect('motion_notify_event', self.MouseMoveEvent)
         self.canvas.mpl_connect('button_release_event', self.MouseReleaseEvent)
-        self.canvas.mpl_connect('pick_event', self.on_rect_pick)
 
 
     def set_mode(self, mode: str, button):
@@ -59,6 +70,9 @@ class Canvas:
         self.update_cursor()
     
     def update_cursor(self):
+        """
+        Cette méthode met à jour la forme du curseur.
+        """
         if(self.mode == "Point"):
             self.canvas.setCursor(CURSOR_POINT)
         else:
@@ -68,6 +82,14 @@ class Canvas:
                 self.canvas.setCursor(CURSOR_DEFAULT)
 
     def MousePressEvent(self, event):
+        """
+        Cette méthode gère l'événement "Appuie sur la souris". En fonction du mode sélectionné, une autre méthode est appelée.
+
+        Args:
+            - event: événement
+        """
+
+        # L'événemment numéro 1 correspond au clique gauche de la souris
         if event.button == 1:
             x = event.xdata
             y = event.ydata
@@ -86,15 +108,22 @@ class Canvas:
                         self.Rectangle = Rectangle(self.mainwindow.class_choice.currentText(), x, y, 0., 0.)
                         self.Rectangle.plot(self.axes)
         else:
+            # L'événemment numéro 3 correspond au clique gauche de la souris
             if(event.button == 3):
                 print("test")
 
     def MouseMoveEvent(self, event):
-        # Récupérer les coordonnées de la souris pendant le glissement
+        """
+        Cette méthode gère l'événement "Maintient du clic avec mouvement". En fonction du mode sélectionné, une autre méthode est appelée.
+
+        Args:
+            - event: événement
+        """
+        # Récupére les coordonnées de la souris pendant le glissement
         x2 = event.xdata
         y2 = event.ydata
 
-        # Vérifier si les coordonnées sont valides
+        # Vérifie si les coordonnées sont valides
         if x2 is not None and y2 is not None:
 
             # Mise à jour Pointeur instantanné
@@ -106,19 +135,24 @@ class Canvas:
                 if(event.button == 1):
                     # Mettre à jour les propriétés du Rectangle temporaire
                     self.Rectangle.update_rectangle(x2, y2)
-
-                    # Utiliser blit pour mettre à jour seulement le Rectangle
-                    #self.canvas.restore_region(self.background)
+                    
+                    # Cette fonction n'a de sens que si le rectangle est affiché durant le tracé
+                    # avec la fonction blit, cependant avec son utilisation un bug persiste.
                     self.Rectangle.temporary_plot(self.axes)
-                    #self.canvas.blit(self.axes.bbox)
     
     def MouseReleaseEvent(self, event):
+        """
+        Cette méthode gère l'événement "Relâchement du clic". En fonction du mode sélectionné, une autre méthode est appelée.
+
+        Args:
+            - event: événement
+        """
         if(self.mode == "Point"):
             if(event.button == 1):
-                # Récupérer les coordonnées du relâchement de la souris
                 x = event.xdata
                 y = event.ydata
-                # Vérifier si les coordonnées sont valides
+
+                # Vérifie si les coordonnées sont valides
                 if(x is not None and y is not None):
                     xmax = self.mainwindow.axes.get_xlim()[1]
                     ymax = self.mainwindow.axes.get_ylim()[0]
@@ -135,13 +169,13 @@ class Canvas:
         else:
             if(self.mode == "Rectangle"):
                 if(event.button == 1):
-                    # Récupérer les coordonnées du relâchement de la souris
+
                     x = event.xdata
                     y = event.ydata
 
-                    # Vérifier si les coordonnées sont valides
+                    # Vérifie si les coordonnées sont valides
                     if(x is not None and y is not None):
-                        # Dessiner le Rectangle final
+                        # Dessine le Rectangle final
                         self.Rectangle.update_rectangle(x, y)
                         if(self.Rectangle.x1 != self.Rectangle.x2 and self.Rectangle.y1 != self.Rectangle.y2):
                             self.Rectangle.plot(self.axes)
@@ -153,10 +187,14 @@ class Canvas:
 
                         self.canvas.draw()
 
-    def on_rect_pick(self, event):
-        print(event.artist)
-
     def reset_axes(self, axes, mainwindow):
+        """
+        Cette méthode réinitialise les axes de la figure.
+
+        Args:
+            - axes: Axes de la figure
+            - mainwindow: instance de la classe MainWindow
+        """
         # Réinitialisation de l'axe
         self.axes = axes
         
@@ -169,10 +207,16 @@ class Canvas:
         self.shapes.clear()
 
     def clear_pointer(self):
+        """
+        Cette méthode permet de réinitialiser le pointeur.
+        """
         self.Pointer.clear(self.axes)
         self.canvas.draw()
 
     def clear_point(self, index):
+        """
+        Cette méthode permet de réinitialiser un point.
+        """
         point = self.shapes[index]
         if point in self.Points.points:
             self.mainwindow.shape_list.takeItem(index)
@@ -181,6 +225,9 @@ class Canvas:
             self.canvas.draw()
 
     def clear_points(self):
+        """
+        Cette méthode permet de réinitialiser les points.
+        """
         for point in self.Points.points:
             index = self.shapes.index(point)
             self.mainwindow.shape_list.takeItem(index)
@@ -190,6 +237,9 @@ class Canvas:
         self.canvas.draw()
 
     def clear_rectangle(self, index):
+        """
+        Cette méthode permet de réinitialiser un rectangle.
+        """
         rectangle = self.shapes[index]
         if rectangle in self.Rectangles.rectangles:
             self.mainwindow.shape_list.takeItem(index)
@@ -198,6 +248,9 @@ class Canvas:
             self.canvas.draw()
 
     def clear_rectangles(self):
+        """
+        Cette méthode permet de réinitialiser les rectangles.
+        """
         for rectangle in self.Rectangles.rectangles:
             index = self.shapes.index(rectangle)
             self.mainwindow.shape_list.takeItem(index)
@@ -207,10 +260,16 @@ class Canvas:
         self.canvas.draw()
 
     def clear_list(self):
+        """
+        Cette méthode permet de réinitialiser la liste des formes.
+        """
         self.mainwindow.shape_list.clear()
 
 
     def clear_canvas(self):
+        """
+        Cette méthode permet de supprimer toutes les formes sur le canvas.
+        """
         self.clear_pointer()
         self.clear_points()
         self.clear_rectangles()
@@ -218,6 +277,9 @@ class Canvas:
         self.canvas.draw()
 
     def del_element(self):
+        """
+        Cette méthode permet de supprimer un élément de la liste des formes
+        """
         selected_item = self.mainwindow.shape_list.currentItem()  # Récupère l'élément sélectionné
         if selected_item:
             text = selected_item.text()  # Récupère le texte de l'élément
@@ -229,6 +291,9 @@ class Canvas:
                 self.clear_rectangle(index)
 
     def export_json(self):
+        """
+        Cette méthode permet d'exporter les formes générées dans un fichier json, avec l'image au format png.
+        """
         n_tr = self.mainwindow.feature[0]
         n_samp = self.mainwindow.feature[1]
         if(self.mainwindow.def_value != None):
@@ -278,6 +343,9 @@ class Canvas:
             ExJsonNone(self.mainwindow.img_modified, self.mainwindow.selected_file[:-4])
 
     def test_list(self):
+        """
+        Cette méthode permet de tester si les différentes listes fonctionnement correctement entre elles.
+        """
         print(f"Taille de la liste QListWidget: {self.mainwindow.shape_list.count()}")
         print(f"Taille de shapes: {len(self.shapes)}")
         print(f"Taille des Points: {len(self.Points.points)}")
